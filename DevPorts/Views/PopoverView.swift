@@ -7,6 +7,8 @@ struct PopoverView: View {
     @State private var expanded: Set<String> = []
     @AppStorage("showSystem") private var showSystem = false
     @State private var listHeight: CGFloat = 0
+    /// The row or group waiting on its inline "Encerrar" confirmation.
+    @State private var confirming: String?
 
     /// DESIGN.md caps the popover at 660 pt; header, search field and footer take 127 of them.
     private static let maxListHeight: CGFloat = 533
@@ -32,6 +34,7 @@ struct PopoverView: View {
                 // gets the list's height as a floor.
                 .frame(minHeight: min(listHeight, Self.maxListHeight))
             }
+            if let banner = store.banner { errorBanner(banner) }
             Divider()
             footer(hiddenCount: overview.hiddenCount)
         }
@@ -82,7 +85,7 @@ struct PopoverView: View {
                         .padding(.horizontal, 14)
                         .frame(height: 40)
                 }
-                ForEach(overview.ports) { PortRowView(row: $0) }
+                ForEach(overview.ports) { PortRowView(row: $0, store: store, confirming: $confirming) }
             }
             if !overview.groups.isEmpty {
                 if showsPorts {
@@ -110,34 +113,76 @@ struct PopoverView: View {
     private func groupRows(_ group: Overview.ProcessGroup) -> some View {
         // A search opens every group, so matches inside them are not hidden behind a chevron.
         let isExpanded = !query.isEmpty || expanded.contains(group.name)
+        let key = "group:\(group.name)"
         return VStack(spacing: 0) {
-            Button {
-                expanded.formSymmetricDifference([group.name])
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+            HStack(spacing: 8) {
+                Button {
+                    expanded.formSymmetricDifference([group.name])
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 10)
+                        Text(group.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text(
+                            counted(group.processes.count, "processo", "processos") + " · "
+                                + Format.memory(group.memoryBytes)
+                        )
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                        .frame(width: 10)
-                    Text(group.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(
-                        counted(group.processes.count, "processo", "processos") + " · "
-                            + Format.memory(group.memoryBytes)
-                    )
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    }
+                    .frame(height: 32)
+                    .contentShape(.rect)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 32)
-                .contentShape(.rect)
+                .buttonStyle(.plain)
+                .accessibilityValue(isExpanded ? "Aberto" : "Fechado")
+                if isExpanded {
+                    Button("Encerrar todos") { confirming = key }
+                        .buttonStyle(SmallButtonStyle(color: .danger))
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityValue(isExpanded ? "Aberto" : "Fechado")
+            .padding(.leading, 14)
+            .padding(.trailing, isExpanded ? 10 : 14)
+            if confirming == key {
+                let count = group.processes.count
+                ConfirmBand(
+                    text: count == 1
+                        ? "Encerrar o processo de \(group.name)?" : "Encerrar os \(count) processos de \(group.name)?",
+                    confirm: {
+                        confirming = nil
+                        store.terminate(group.processes)
+                    },
+                    cancel: { confirming = nil }
+                )
+                .padding(EdgeInsets(top: 2, leading: 14, bottom: 6, trailing: 14))
+            }
             if isExpanded {
-                ForEach(group.processes) { ProcessRowView(process: $0) }
+                ForEach(group.processes) { ProcessRowView(process: $0, store: store, confirming: $confirming) }
             }
         }
+    }
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.circle")
+            Text(message).frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                store.banner = nil
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Fechar aviso")
+        }
+        .font(.system(size: 11.5))
+        .foregroundStyle(Color.danger)
+        .padding(EdgeInsets(top: 9, leading: 10, bottom: 9, trailing: 10))
+        .background(Color.danger.opacity(0.07), in: .rect(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.danger.opacity(0.22)))
+        .padding(EdgeInsets(top: 6, leading: 12, bottom: 10, trailing: 12))
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     @ViewBuilder
@@ -187,53 +232,200 @@ struct PopoverView: View {
 
 private struct PortRowView: View {
     let row: Overview.PortRow
+    let store: Store
+    @Binding var confirming: String?
 
     var body: some View {
         let process = row.process
+        let isStopping = store.stopping[process.pid] != nil
         HStack(spacing: 10) {
-            Led(color: !process.isDev ? .idle : row.port.isExposed ? .warning : .ok)
-            Text(":" + String(row.port.number))
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .frame(width: 58, alignment: .leading)
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(process.label).font(.system(size: 13)).lineLimit(1)
-                    if row.port.isExposed { Badge(text: "REDE", color: .warning) }
-                    if !process.isDev { Badge(text: "SISTEMA", color: .idle) }
+            Led(color: isStopping || !process.isDev ? .idle : row.port.isExposed ? .warning : .ok)
+            HStack(spacing: 10) {
+                Text(":" + String(row.port.number))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .frame(width: 58, alignment: .leading)
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 6) {
+                        Text(process.label).font(.system(size: 13)).lineLimit(1)
+                        if row.port.isExposed { Badge(text: "REDE", color: .warning) }
+                        if !process.isDev { Badge(text: "SISTEMA", color: .idle) }
+                    }
+                    StatusLine(
+                        process: process, store: store,
+                        details: [process.group, process.executable, process.uptime, process.memory])
                 }
-                Text([process.group, process.executable, process.uptime, process.memory].joined(separator: " · "))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            .foregroundStyle(process.isDev && !isStopping ? .primary : .secondary)
+            .accessibilityElement(children: .combine)
+            if !isStopping && confirming != "pid:\(process.pid)" {
+                IconButton(systemName: "arrow.up.right", label: "Abrir localhost:\(row.port.number) no navegador") {
+                    store.openInBrowser(row.port.number)
+                }
+            }
+            KillControl(process: process, store: store, confirming: $confirming)
         }
-        .foregroundStyle(process.isDev ? .primary : .secondary)
         .padding(.leading, 14)
         .padding(.trailing, 8)
         .frame(height: 40)
         .help(process.argv.joined(separator: " "))
-        .accessibilityElement(children: .combine)
+        .contextMenu {
+            Button("Abrir no navegador") { store.openInBrowser(row.port.number) }
+            RowMenu(process: process, store: store)
+        }
     }
 }
 
 private struct ProcessRowView: View {
     let process: DevProcess
+    let store: Store
+    @Binding var confirming: String?
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text(process.label).font(.system(size: 12)).lineLimit(1).layoutPriority(1)
-            Text(" · pid \(String(process.pid)) · \(process.uptime) · \(process.memory)")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
+        HStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text(process.label).font(.system(size: 12)).lineLimit(1).layoutPriority(1)
+                Text(" · ").font(.system(size: 11)).foregroundStyle(.secondary)
+                StatusLine(
+                    process: process, store: store,
+                    details: ["pid \(process.pid)", process.uptime, process.memory])
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(store.stopping[process.pid] == nil ? .primary : .secondary)
+            .accessibilityElement(children: .combine)
+            KillControl(process: process, store: store, confirming: $confirming)
         }
         .padding(.leading, 38)
         .padding(.trailing, 8)
         .frame(height: 30)
         .help(process.argv.joined(separator: " "))
-        .accessibilityElement(children: .combine)
+        .contextMenu { RowMenu(process: process, store: store) }
+    }
+}
+
+/// The metadata line, replaced by "encerrando…" while TERM is pending and by the warning once 5 s pass.
+private struct StatusLine: View {
+    let process: DevProcess
+    let store: Store
+    let details: [String]
+
+    var body: some View {
+        if let stopping = store.stopping[process.pid] {
+            let isLate = stopping == .unresponsive
+            Text(isLate ? "Não respondeu em 5 s" : "encerrando…")
+                .font(.system(size: 11))
+                .foregroundStyle(isLate ? Color.warning : .secondary)
+        } else {
+            Text(details.joined(separator: " · "))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+}
+
+/// ✕ sends TERM right away on a dev row and asks first on a system row. While TERM is pending it becomes a spinner,
+/// and "Forçar" (KILL) after 5 s without an exit.
+private struct KillControl: View {
+    let process: DevProcess
+    let store: Store
+    @Binding var confirming: String?
+
+    var body: some View {
+        let key = "pid:\(process.pid)"
+        if let stopping = store.stopping[process.pid] {
+            if stopping == .waiting {
+                ProgressView().controlSize(.small).frame(width: 26, height: 26)
+            } else {
+                Button("Forçar") { store.terminate([process]) }
+                    .buttonStyle(SmallButtonStyle(color: .danger, filled: false, strong: true))
+            }
+        } else if confirming == key {
+            HStack(spacing: 6) {
+                Button("Encerrar") {
+                    confirming = nil
+                    store.terminate([process])
+                }
+                .buttonStyle(SmallButtonStyle(color: .danger, filled: true))
+                Button("Cancelar") { confirming = nil }.buttonStyle(SmallButtonStyle())
+            }
+        } else {
+            IconButton(systemName: "xmark", label: "Encerrar \(process.label), pid \(process.pid)") {
+                if process.isDev { store.terminate([process]) } else { confirming = key }
+            }
+        }
+    }
+}
+
+private struct RowMenu: View {
+    let process: DevProcess
+    let store: Store
+
+    var body: some View {
+        if process.cwd != nil {
+            Button("Mostrar no Finder") { store.showInFinder(process) }
+        }
+        Button("Copiar comando") { store.copyCommand(process) }
+    }
+}
+
+private struct ConfirmBand: View {
+    let text: String
+    let confirm: () -> Void
+    let cancel: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(text).font(.system(size: 12)).frame(maxWidth: .infinity, alignment: .leading)
+            Button("Encerrar", action: confirm).buttonStyle(SmallButtonStyle(color: .danger, filled: true))
+            Button("Cancelar", action: cancel).buttonStyle(SmallButtonStyle())
+        }
+        .padding(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+        .background(Color.danger.opacity(0.07), in: .rect(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.danger.opacity(0.22)))
+    }
+}
+
+private struct IconButton: View {
+    let systemName: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 26, height: 26)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help(label)
+        .accessibilityLabel(label)
+    }
+}
+
+/// DESIGN.md's small button: 24 pt, subtle border, or filled for the confirming action.
+private struct SmallButtonStyle: ButtonStyle {
+    var color: Color = .primary
+    var filled = false
+    var strong = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: filled || strong ? .semibold : .regular))
+            .foregroundStyle(filled ? Color.white : color)
+            .padding(.horizontal, 10)
+            .frame(height: 24)
+            .background(filled ? color : color.opacity(strong ? 0.08 : 0), in: .rect(cornerRadius: 6))
+            .overlay {
+                if !filled {
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(strong ? color.opacity(0.35) : Color.primary.opacity(0.14))
+                }
+            }
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .contentShape(.rect)
     }
 }
 
@@ -265,6 +457,7 @@ extension Color {
     fileprivate static let ok = Color.green
     fileprivate static let warning = Color.orange
     fileprivate static let idle = Color.gray
+    fileprivate static let danger = Color.red
 }
 
 extension DevProcess {
