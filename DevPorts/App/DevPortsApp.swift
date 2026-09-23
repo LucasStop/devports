@@ -15,5 +15,10 @@ struct DevPortsApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+
+        Window("Terminal", id: "terminal") {
+            TerminalWindow(store: store, terminal: store.terminal)
+        }
+        .defaultSize(width: 860, height: 520)
     }
 }

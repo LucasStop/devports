@@ -8,12 +8,13 @@ Status: **em construção**. O plano está em [PRD.md](PRD.md) e a identidade vi
 - macOS 14 ou superior
 - Xcode 26 ou superior (Swift 6.2)
 - `brew install xcodegen`
+- `xcodebuild -downloadComponent MetalToolchain` (o terminal integrado, SwiftTerm, compila shaders Metal)
 
 ## Build
 
 ```sh
 xcodegen
-xcodebuild -scheme DevPorts -configuration Release -derivedDataPath build
+xcodebuild -scheme DevPorts -configuration Release -derivedDataPath build -skipPackagePluginValidation
 cp -R build/Build/Products/Release/DevPorts.app ~/Applications/
 open ~/Applications/DevPorts.app
 ```
