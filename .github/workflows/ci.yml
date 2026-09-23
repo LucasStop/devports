@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   check:
-    name: Lint · Build
+    name: Lint · Testes
     # macos-26 traz Xcode 26 (Swift 6.2), exigido pelo SwiftTerm a partir da slice 4.
     runs-on: macos-26
     steps:
@@ -21,8 +21,7 @@ jobs:
         run: brew install xcodegen && xcodegen generate
 
       - name: Lint
-        run: swift format lint --strict --recursive DevPorts
+        run: swift format lint --strict --recursive DevPorts DevPortsTests
 
-      # Vira `xcodebuild test` na slice 1, junto com o target DevPortsTests.
-      - name: Build
-        run: xcodebuild -quiet build -project DevPorts.xcodeproj -scheme DevPorts -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO
+      - name: Testes
+        run: xcodebuild -quiet test -project DevPorts.xcodeproj -scheme DevPorts -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO

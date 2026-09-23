@@ -28,7 +28,7 @@ lefthook install
 ```
 
 - **pre-commit:** gitleaks e `swift format lint --strict` nos arquivos em stage.
-- **CI no PR:** lint e build no runner `macos-26`.
+- **CI no PR:** lint e testes no runner `macos-26`.
 
 ## Licença
 
