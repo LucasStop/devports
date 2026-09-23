@@ -9,6 +9,8 @@ struct PopoverView: View {
     @State private var listHeight: CGFloat = 0
     /// The row or group waiting on its inline "Encerrar" confirmation.
     @State private var confirming: String?
+    @State private var confirmingQuit = false
+    @Environment(\.openWindow) private var openWindow
 
     /// DESIGN.md caps the popover at 660 pt; header, search field and footer take 127 of them.
     private static let maxListHeight: CGFloat = 533
@@ -35,6 +37,7 @@ struct PopoverView: View {
                 .frame(minHeight: min(listHeight, Self.maxListHeight))
             }
             if let banner = store.banner { errorBanner(banner) }
+            if confirmingQuit { quitBand }
             Divider()
             footer(hiddenCount: overview.hiddenCount)
         }
@@ -57,6 +60,14 @@ struct PopoverView: View {
             .keyboardShortcut("r")
             .help("Atualizar agora")
             .accessibilityLabel("Atualizar agora")
+            Button {
+                openWindow(id: "terminal")
+            } label: {
+                Image(systemName: "terminal").frame(width: 26, height: 26)
+            }
+            .buttonStyle(.borderless)
+            .help("Abrir terminal")
+            .accessibilityLabel("Abrir terminal")
         }
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 8, trailing: 10))
     }
@@ -145,6 +156,7 @@ struct PopoverView: View {
             }
             .padding(.leading, 14)
             .padding(.trailing, isExpanded ? 10 : 14)
+            .contextMenu { groupMenu(group) }
             if confirming == key {
                 let count = group.processes.count
                 ConfirmBand(
@@ -160,6 +172,29 @@ struct PopoverView: View {
             }
             if isExpanded {
                 ForEach(group.processes) { ProcessRowView(process: $0, store: store, confirming: $confirming) }
+            }
+        }
+    }
+
+    /// "Terminal na pasta" and, for a package.json project, its scripts run by the lockfile's manager.
+    @ViewBuilder
+    private func groupMenu(_ group: Overview.ProcessGroup) -> some View {
+        if let folder = group.processes.lazy.compactMap({ $0.projectPath ?? $0.cwd }).first {
+            Button("Terminal na pasta") {
+                store.openTerminal(title: group.name, folder: folder)
+                openWindow(id: "terminal")
+            }
+            if let scripts = ProjectScripts.read(root: folder) {
+                Menu("Scripts") {
+                    ForEach(scripts.names, id: \.self) { name in
+                        Button("\(scripts.manager) run \(name)") {
+                            store.openTerminal(
+                                title: "\(group.name) · \(name)", folder: folder,
+                                command: "\(scripts.manager) run \(name)")
+                            openWindow(id: "terminal")
+                        }
+                    }
+                }
             }
         }
     }
@@ -210,6 +245,29 @@ struct PopoverView: View {
         }
     }
 
+    /// Quitting closes the ptys, which ends what the Terminal tabs started.
+    private var quitBand: some View {
+        let count = store.terminal.running.count
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(
+                count == 1
+                    ? "1 sessão rodando no Terminal. Sair encerra essa sessão."
+                    : "\(count) sessões rodando no Terminal. Sair encerra as \(count)."
+            )
+            .font(.system(size: 12))
+            HStack(spacing: 8) {
+                Spacer()
+                Button("Cancelar") { confirmingQuit = false }.buttonStyle(SmallButtonStyle())
+                Button("Sair e encerrar") {
+                    store.terminal.closeAll()
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(SmallButtonStyle(color: .danger, filled: true))
+            }
+        }
+        .padding(12)
+    }
+
     private func footer(hiddenCount: Int) -> some View {
         HStack(spacing: 8) {
             Toggle(isOn: $showSystem) {
@@ -220,9 +278,13 @@ struct PopoverView: View {
             }
             .toggleStyle(.checkbox)
             Spacer()
-            Button("Sair") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.borderless)
-                .keyboardShortcut("q")
+            Button("Terminal") { openWindow(id: "terminal") }
+                .buttonStyle(SmallButtonStyle())
+            Button("Sair") {
+                if store.terminal.running.isEmpty { NSApplication.shared.terminate(nil) } else { confirmingQuit = true }
+            }
+            .buttonStyle(.borderless)
+            .keyboardShortcut("q")
         }
         .font(.system(size: 12))
         .padding(.horizontal, 12)
@@ -360,8 +422,15 @@ private struct KillControl: View {
 private struct RowMenu: View {
     let process: DevProcess
     let store: Store
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        if let folder = process.projectPath ?? process.cwd {
+            Button("Terminal na pasta") {
+                store.openTerminal(title: process.project ?? process.group, folder: folder)
+                openWindow(id: "terminal")
+            }
+        }
         if process.cwd != nil {
             Button("Mostrar no Finder") { store.showInFinder(process) }
         }

@@ -20,8 +20,12 @@ jobs:
       - name: Gerar projeto
         run: brew install xcodegen && xcodegen generate
 
+      # O SwiftTerm compila shaders Metal; o Xcode 26 traz o compilador como componente à parte.
+      - name: Metal Toolchain
+        run: xcodebuild -showComponent MetalToolchain | grep -q "Status: installed" || xcodebuild -downloadComponent MetalToolchain
+
       - name: Lint
         run: swift format lint --strict --recursive DevPorts DevPortsTests
 
       - name: Testes
-        run: xcodebuild -quiet test -project DevPorts.xcodeproj -scheme DevPorts -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO
+        run: xcodebuild -quiet test -project DevPorts.xcodeproj -scheme DevPorts -destination 'platform=macOS,arch=arm64' -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO
