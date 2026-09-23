@@ -28,6 +28,7 @@ final class Store {
     var banner: String?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private let killer = ProcessKiller()
+    @ObservationIgnored let terminal = TerminalSessions()
 
     init() { setPopoverOpen(false) }
 
@@ -80,6 +81,12 @@ final class Store {
                 }
             }
         }
+    }
+
+    /// Opens a shell tab in `folder`, typing `command` into it; the caller brings up the Terminal window.
+    func openTerminal(title: String, folder: String, command: String? = nil) {
+        terminal.open(title: title, folder: folder, command: command)
+        log.append(LogEntry(command: "cd \(folder)" + (command.map { " && \($0)" } ?? ""), result: "aba \(title)"))
     }
 
     func openInBrowser(_ port: Int) {

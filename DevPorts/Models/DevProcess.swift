@@ -21,6 +21,8 @@ struct DevProcess: Identifiable, Hashable, Sendable {
     let memoryBytes: Int64
     let startedAt: Date
     let isDev: Bool
+    /// Folder of `project`, where the terminal opens and package.json lives.
+    var projectPath: String? = nil
 
     var id: Int32 { pid }
 }
