@@ -19,11 +19,28 @@ targets:
     platform: macOS
     sources:
       - path: DevPorts
-    scheme: {}
+    scheme:
+      testTargets:
+        - DevPortsTests
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lucasstopinski.DevPorts
         INFOPLIST_FILE: DevPorts/App/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+
+  DevPortsTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: DevPortsTests
+    dependencies:
+      - target: DevPorts
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lucasstopinski.DevPortsTests
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
         CODE_SIGNING_REQUIRED: NO
