@@ -2,10 +2,17 @@ import SwiftUI
 
 @main
 struct DevPortsApp: App {
+    @State private var store = Store()
+
     var body: some Scene {
-        MenuBarExtra("DevPorts", systemImage: "cable.connector") {
-            Text("DevPorts")
-                .padding()
+        MenuBarExtra {
+            PopoverView(store: store)
+        } label: {
+            HStack {
+                Image(systemName: "cable.connector").accessibilityLabel("DevPorts")
+                // The count hides at zero, leaving only the glyph (DESIGN.md).
+                if store.devPortCount > 0 { Text(String(store.devPortCount)) }
+            }
         }
         .menuBarExtraStyle(.window)
     }

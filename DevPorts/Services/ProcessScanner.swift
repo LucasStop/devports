@@ -53,6 +53,23 @@ enum ProcessScanner {
         }
     }
 
+    /// Binds the port on loopback. lsof can't read other users' processes, but the kernel refuses the bind while one
+    /// of them listens there (root's nginx on :80). netstat would list them too, yet run from an app it shows no inet
+    /// sockets at all. SO_REUSEADDR keeps TIME_WAIT leftovers of a stopped server from counting as taken.
+    static func isPortTaken(_ port: Int) -> Bool {
+        var v4 = sockaddr_in()
+        v4.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        v4.sin_family = sa_family_t(AF_INET)
+        v4.sin_port = in_port_t(port).bigEndian
+        v4.sin_addr.s_addr = in_addr_t(0x7f00_0001).bigEndian
+        var v6 = sockaddr_in6()
+        v6.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
+        v6.sin6_family = sa_family_t(AF_INET6)
+        v6.sin6_port = in_port_t(port).bigEndian
+        v6.sin6_addr = in6addr_loopback
+        return bindFails(v4, family: AF_INET) || bindFails(v6, family: AF_INET6)
+    }
+
     // MARK: - Parsers
 
     /// `lsof -Fpn` output; a port bound on both IPv4 and IPv6 becomes one entry, exposed if either side is.
@@ -259,6 +276,21 @@ enum ProcessScanner {
             result[pid] = parseProcArgs(Array(buffer[..<length]))
         }
         return result
+    }
+
+    private static func bindFails<Address>(_ address: Address, family: Int32) -> Bool {
+        let socket = Darwin.socket(family, SOCK_STREAM, 0)
+        guard socket >= 0 else { return false }
+        defer { close(socket) }
+        var reuse: Int32 = 1
+        setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+        var address = address
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(socket, $0, socklen_t(MemoryLayout<Address>.size))
+            }
+        }
+        return result != 0 && errno == EADDRINUSE
     }
 
     private static func run(_ executable: String, _ arguments: [String]) -> String {
