@@ -29,6 +29,29 @@ final class ProcessScannerTests: XCTestCase {
         )
     }
 
+    // Slice 2 extra case: the kernel refuses a bind over a listener, which is how a port held by another user shows up
+    // though lsof can't see it.
+    func testPortIsTakenWhileSomethingListensOnIt() {
+        let listener = socket(AF_INET, SOCK_STREAM, 0)
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = in_addr_t(0x7f00_0001).bigEndian
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        withUnsafeMutablePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                XCTAssertEqual(Darwin.bind(listener, $0, length), 0)
+                XCTAssertEqual(listen(listener, 1), 0)
+                XCTAssertEqual(getsockname(listener, $0, &length), 0)
+            }
+        }
+        let port = Int(UInt16(bigEndian: address.sin_port))
+
+        XCTAssertTrue(ProcessScanner.isPortTaken(port))
+        close(listener)
+        XCTAssertFalse(ProcessScanner.isPortTaken(port))
+    }
+
     // Cases 5–6: ps -o pid=,ppid=,rss=,lstart=,comm=
 
     func testParsesPSRow() throws {
