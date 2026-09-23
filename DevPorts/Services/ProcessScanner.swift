@@ -34,7 +34,8 @@ enum ProcessScanner {
 
         return candidates.map { row in
             let cwd = cwds[row.pid]
-            let project = cwd.flatMap { projectName(cwd: $0, home: home) }
+            let projectPath = cwd.flatMap { projectRoot(cwd: $0, home: home) }
+            let project = projectPath.map { ($0 as NSString).lastPathComponent }
             let argv = argvs[row.pid] ?? []
             return DevProcess(
                 pid: row.pid,
@@ -48,7 +49,8 @@ enum ProcessScanner {
                 ports: listening[row.pid] ?? [],
                 memoryBytes: row.memoryBytes,
                 startedAt: row.startedAt,
-                isDev: isDevExecutable(row.executable) || project != nil
+                isDev: isDevExecutable(row.executable) || project != nil,
+                projectPath: projectPath
             )
         }
     }
@@ -161,6 +163,10 @@ enum ProcessScanner {
     /// Nearest folder with a project marker. Only searched inside home, and never under hidden folders or
     /// ~/Library, where tool caches (npx, gradle, VS Code extensions) carry package.json files of their own.
     static func projectName(cwd: String, home: String) -> String? {
+        projectRoot(cwd: cwd, home: home).map { ($0 as NSString).lastPathComponent }
+    }
+
+    static func projectRoot(cwd: String, home: String) -> String? {
         guard cwd.hasPrefix(home + "/") else { return nil }
         let components = cwd.dropFirst(home.count + 1).split(separator: "/")
         guard components.first != "Library", !components.contains(where: { $0.hasPrefix(".") }) else { return nil }
@@ -170,7 +176,7 @@ enum ProcessScanner {
             let hasMarker = projectMarkers.contains {
                 FileManager.default.fileExists(atPath: folder.appendingPathComponent($0).path)
             }
-            if hasMarker { return folder.lastPathComponent }
+            if hasMarker { return folder.path }
             folder.deleteLastPathComponent()
         }
         return nil
