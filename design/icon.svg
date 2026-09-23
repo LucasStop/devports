@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- DevPorts, ícone A "Porta". Grid macOS: corpo squircle 824 em canvas 1024. Usado de 64 px para cima. -->
+  <rect x="100" y="118" width="824" height="824" rx="186" fill="#000000" opacity="0.16"/>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#ECEEF1"/>
+  <rect x="104" y="104" width="816" height="816" rx="182" fill="none" stroke="#FFFFFF" stroke-width="6" opacity="0.9"/>
+  <path d="M272 352H752V640H648V724H376V640H272Z" fill="#1C1F24"/>
+  <rect x="312" y="370" width="400" height="10" rx="5" fill="#2E333B"/>
+  <g fill="#D4A72C">
+    <rect x="338" y="392" width="20" height="84" rx="4"/>
+    <rect x="385" y="392" width="20" height="84" rx="4"/>
+    <rect x="432" y="392" width="20" height="84" rx="4"/>
+    <rect x="479" y="392" width="20" height="84" rx="4"/>
+    <rect x="526" y="392" width="20" height="84" rx="4"/>
+    <rect x="573" y="392" width="20" height="84" rx="4"/>
+    <rect x="620" y="392" width="20" height="84" rx="4"/>
+    <rect x="667" y="392" width="20" height="84" rx="4"/>
+  </g>
+  <rect x="272" y="262" width="104" height="44" rx="14" fill="#2FBF71"/>
+  <rect x="648" y="262" width="104" height="44" rx="14" fill="#F2A531"/>
+</svg>

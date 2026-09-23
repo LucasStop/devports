@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- DevPorts, ícone A em 16 e 32 px: sem pinos nem borda interna, soquete e LEDs maiores para continuar legível. -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#ECEEF1"/>
+  <path d="M232 360H792V668H672V764H352V668H232Z" fill="#1C1F24"/>
+  <rect x="232" y="228" width="160" height="72" rx="24" fill="#2FBF71"/>
+  <rect x="632" y="228" width="160" height="72" rx="24" fill="#F2A531"/>
+</svg>

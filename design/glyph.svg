@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Glifo "Porta" da barra de menus. Template image: o macOS pinta conforme a barra clara ou escura. -->
+  <path d="M4 6h16v9h-4v3H8v-3H4z"/>
+  <path d="M9 6v3M12 6v3M15 6v3"/>
+</svg>
