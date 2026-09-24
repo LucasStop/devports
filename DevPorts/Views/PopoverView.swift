@@ -32,9 +32,9 @@ struct PopoverView: View {
                         listHeight = $0
                     }
                 }
-                // The window takes the smallest size the content allows, and a ScrollView shrinks to nothing, so it
-                // gets the list's height as a floor.
-                .frame(minHeight: min(listHeight, Self.maxListHeight))
+                // The window sizes to its content and a ScrollView has no height of its own, so it gets the list's,
+                // up to the cap. An exact height also lets the popover shrink when a search leaves fewer rows.
+                .frame(height: min(listHeight, Self.maxListHeight))
             }
             if let banner = store.banner { errorBanner(banner) }
             if confirmingQuit { quitBand }
@@ -49,7 +49,7 @@ struct PopoverView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: "cable.connector")
+            Image(.menuBarGlyph)
             Text("DevPorts").font(.system(size: 13, weight: .semibold))
             Spacer()
             Button {
@@ -236,9 +236,11 @@ struct PopoverView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 120)
         } else if query.isEmpty {
-            ContentUnavailableView(
-                "Nenhuma porta dev em uso", systemImage: "cable.connector",
-                description: Text("Servidores que você subir aparecem aqui."))
+            ContentUnavailableView {
+                Label("Nenhuma porta dev em uso", image: .menuBarGlyph)
+            } description: {
+                Text("Servidores que você subir aparecem aqui.")
+            }
         } else {
             ContentUnavailableView(
                 "Nada encontrado", systemImage: "magnifyingglass",
@@ -329,7 +331,7 @@ private struct PortRowView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 6) {
                         Text(process.label).font(.system(size: 13)).lineLimit(1)
-                        if row.port.isExposed { Badge(text: "REDE", color: .warning) }
+                        if row.port.isExposed { Badge(text: "REDE", color: .warning, textColor: .warningText) }
                         if !process.isDev { Badge(text: "SISTEMA", color: .idle) }
                     }
                     StatusLine(
@@ -396,7 +398,7 @@ private struct StatusLine: View {
             let isLate = stopping == .unresponsive
             Text(isLate ? "Não respondeu em 5 s" : "encerrando…")
                 .font(.system(size: 11))
-                .foregroundStyle(isLate ? Color.warning : .secondary)
+                .foregroundStyle(isLate ? Color.warningText : .secondary)
         } else {
             Text(details.joined(separator: " · "))
                 .font(.system(size: 11))
@@ -532,24 +534,18 @@ private struct Led: View {
 private struct Badge: View {
     let text: String
     let color: Color
+    /// Darker than the LED in light mode, for contrast on the tinted background (DESIGN.md).
+    var textColor: Color?
 
     var body: some View {
         Text(text)
             .font(.system(size: 9.5, weight: .bold))
             .tracking(0.38)  // 0.04 em
-            .foregroundStyle(color)
+            .foregroundStyle(textColor ?? color)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
             .background(color.opacity(0.14), in: .rect(cornerRadius: 4))
     }
-}
-
-extension Color {
-    // ponytail: system stand-ins until slice 6 adds the DESIGN.md colorsets (Any/Dark) under these names.
-    fileprivate static let ok = Color.green
-    fileprivate static let warning = Color.orange
-    fileprivate static let idle = Color.gray
-    fileprivate static let danger = Color.red
 }
 
 extension DevProcess {
