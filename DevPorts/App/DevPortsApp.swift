@@ -9,7 +9,7 @@ struct DevPortsApp: App {
             PopoverView(store: store)
         } label: {
             HStack {
-                Image(systemName: "cable.connector").accessibilityLabel("DevPorts")
+                Image(.menuBarGlyph).accessibilityLabel("DevPorts")
                 // The count hides at zero, leaving only the glyph (DESIGN.md).
                 if store.devPortCount > 0 { Text(String(store.devPortCount)) }
             }

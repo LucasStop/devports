@@ -69,9 +69,9 @@ struct TerminalWindow: View {
     /// Green running, gray exited clean, red exited with an error (DESIGN.md).
     private func color(_ status: TerminalSessions.Session.Status) -> SwiftUI.Color {
         switch status {
-        case .running: .green
-        case .exited(let code) where code == 0: .gray
-        case .exited: .red
+        case .running: .ok
+        case .exited(let code) where code == 0: .idle
+        case .exited: .danger
         }
     }
 }
