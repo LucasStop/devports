@@ -26,6 +26,8 @@ final class Store {
     private(set) var log: [LogEntry] = []
     /// Footer error, dismissed by the user.
     var banner: String?
+    /// A restart waiting on its inline confirmation, which shows the exact command.
+    private(set) var pendingRestart: (process: DevProcess, plan: Restart.Plan)?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private let killer = ProcessKiller()
     @ObservationIgnored let terminal = TerminalSessions()
@@ -87,6 +89,46 @@ final class Store {
     func openTerminal(title: String, folder: String, command: String? = nil) {
         terminal.open(title: title, folder: folder, command: command)
         log.append(LogEntry(command: "cd \(folder)" + (command.map { " && \($0)" } ?? ""), result: "aba \(title)"))
+    }
+
+    func prepareRestart(_ process: DevProcess) async {
+        let pid = process.pid
+        guard let plan = await Task.detached(operation: { ProcessScanner.restartPlan(for: pid) }).value else {
+            banner = "Não deu para ler o comando que iniciou \(process.label)."
+            return
+        }
+        pendingRestart = (process, plan)
+    }
+
+    func cancelRestart() { pendingRestart = nil }
+
+    /// TERMs the root command and everything under it, waits up to 5 s and runs the command again in a Terminal tab.
+    /// Returns false, without relaunching, if anything is still alive; its row then offers "Forçar".
+    func confirmRestart() async -> Bool {
+        guard let (process, plan) = pendingRestart else { return false }
+        pendingRestart = nil
+        for target in plan.targets {
+            let outcome = killer.terminate(pid: target.pid, startedAt: target.startedAt)
+            log.append(
+                LogEntry(
+                    command: "kill -TERM \(target.pid)  # reinício de \(process.label)", result: Self.describe(outcome))
+            )
+        }
+        var alive = plan.targets
+        for _ in 0..<10 where !alive.isEmpty {
+            try? await Task.sleep(for: .milliseconds(500))
+            alive = alive.filter { kill($0.pid, 0) == 0 }
+        }
+        await refresh()
+        guard alive.isEmpty else {
+            for target in alive where stopping[target.pid] == nil { stopping[target.pid] = .unresponsive }
+            banner =
+                "Reinício cancelado: \(alive.count == 1 ? "1 processo não saiu" : "\(alive.count) processos não saíram") em 5 s."
+            return false
+        }
+        openTerminal(
+            title: "\(process.project ?? process.label) · reinício", folder: plan.folder, command: plan.command)
+        return true
     }
 
     func openInBrowser(_ port: Int) {

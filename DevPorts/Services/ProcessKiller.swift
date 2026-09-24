@@ -25,13 +25,15 @@ final class ProcessKiller {
 
     /// Re-reads the start time first: a pid freed after the scan may already belong to another process.
     func terminate(_ process: DevProcess) -> Outcome {
-        guard let current = startTime(process.pid) else { return .gone }
-        let key = "\(process.pid)@\(Int(process.startedAt.timeIntervalSince1970))"
-        guard Int(current.timeIntervalSince1970) == Int(process.startedAt.timeIntervalSince1970) else {
-            return .pidReused
-        }
+        terminate(pid: process.pid, startedAt: process.startedAt)
+    }
+
+    func terminate(pid: pid_t, startedAt: Date) -> Outcome {
+        guard let current = startTime(pid) else { return .gone }
+        let key = "\(pid)@\(Int(startedAt.timeIntervalSince1970))"
+        guard Int(current.timeIntervalSince1970) == Int(startedAt.timeIntervalSince1970) else { return .pidReused }
         let signal = terminated.contains(key) ? SIGKILL : SIGTERM
-        switch send(process.pid, signal) {
+        switch send(pid, signal) {
         case 0:
             terminated.insert(key)
             return .sent(signal)

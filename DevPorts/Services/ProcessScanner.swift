@@ -55,6 +55,31 @@ enum ProcessScanner {
         }
     }
 
+    /// Reads the ancestors of `pid` to find the command that started it, then its folder and every process under it.
+    static func restartPlan(for pid: Int32) -> Restart.Plan? {
+        let rows = parsePS(run("/bin/ps", ["-axww", "-o", "pid=,ppid=,rss=,lstart=,comm="]))
+        let byPid = Dictionary(rows.map { ($0.pid, $0) }, uniquingKeysWith: { first, _ in first })
+        var lineage: [Int32] = []
+        var next = pid
+        while let row = byPid[next], lineage.count < 64 {
+            lineage.append(next)
+            if row.ppid <= 1 { break }
+            next = row.ppid
+        }
+        let argvs = argvs(for: lineage)
+        let table = lineage.compactMap { id in
+            byPid[id].map { Restart.Proc(pid: id, ppid: $0.ppid, executable: $0.executable, argv: argvs[id] ?? []) }
+        }
+        let root = Restart.root(of: pid, in: table)
+        let cwd = parseCwds(run("/usr/sbin/lsof", ["-b", "-w", "-a", "-d", "cwd", "-p", String(root), "-Fpn"]))
+        guard let argv = argvs[root], !argv.isEmpty, let folder = cwd[root] else { return nil }
+        let parents = Dictionary(rows.map { ($0.pid, $0.ppid) }, uniquingKeysWith: { first, _ in first })
+        let targets = ([root] + Restart.descendants(of: root, parents: parents)).compactMap { id in
+            byPid[id].map { Restart.Target(pid: id, startedAt: $0.startedAt) }
+        }
+        return Restart.Plan(command: Restart.command(argv: argv), folder: folder, targets: targets)
+    }
+
     /// Binds the port on loopback. lsof can't read other users' processes, but the kernel refuses the bind while one
     /// of them listens there (root's nginx on :80). netstat would list them too, yet run from an app it shows no inet
     /// sockets at all. SO_REUSEADDR keeps TIME_WAIT leftovers of a stopped server from counting as taken.
