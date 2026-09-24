@@ -35,6 +35,7 @@ final class TerminalSessions {
     func open(title: String, folder: String, command: String? = nil) {
         let session = Session(title: title, folder: folder)
         session.view.font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        TerminalTheme.apply(to: session.view)
         session.view.processDelegate = session
         session.view.startProcess(
             executable: "/bin/zsh", environment: Terminal.getEnvironmentVariables(termName: "xterm-256color"),
@@ -57,6 +58,45 @@ final class TerminalSessions {
 
     func closeAll() {
         sessions.forEach(close)
+    }
+}
+
+/// DESIGN.md's terminal colors, dark or light after the system appearance when the session opens.
+private enum TerminalTheme {
+    static func apply(to view: LocalProcessTerminalView) {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let (background, foreground, caret, ansi) =
+            isDark
+            ? (
+                0x14161A, 0xD7DAE0, 0x3DD68C,
+                [
+                    0x1C1F24, 0xFF6B6B, 0x3DD68C, 0xFFB547, 0x6CB6FF, 0xD2A8FF, 0x56D4DD, 0xD7DAE0,
+                    0x5C6370, 0xFF8A8A, 0x6BE3A8, 0xFFD27A, 0x9CCBFF, 0xE2C5FF, 0x8BE9F0, 0xFFFFFF,
+                ]
+            )
+            : (
+                0xFBFBFA, 0x24292F, 0x17803F,
+                [
+                    0x24292F, 0xC62828, 0x17803F, 0x9A6700, 0x0969DA, 0x8250DF, 0x1B7C83, 0x6E7781,
+                    0x57606A, 0xE5534B, 0x1F9D55, 0xB08800, 0x218BFF, 0xA475F9, 0x3192AA, 0x8C959F,
+                ]
+            )
+        view.installColors(ansi.map(color))
+        view.nativeBackgroundColor = nsColor(background)
+        view.nativeForegroundColor = nsColor(foreground)
+        view.caretColor = nsColor(caret)
+    }
+
+    private static func color(_ hex: Int) -> SwiftTerm.Color {
+        SwiftTerm.Color(
+            red: UInt16((hex >> 16) & 0xFF) * 257, green: UInt16((hex >> 8) & 0xFF) * 257,
+            blue: UInt16(hex & 0xFF) * 257)
+    }
+
+    private static func nsColor(_ hex: Int) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
 }
 
