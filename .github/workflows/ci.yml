@@ -22,7 +22,8 @@ jobs:
 
       # O SwiftTerm compila shaders Metal; o Xcode 26 traz o compilador como componente à parte.
       - name: Metal Toolchain
-        run: xcodebuild -showComponent MetalToolchain | grep -q "Status: installed" || xcodebuild -downloadComponent MetalToolchain
+        run: |
+          xcodebuild -showComponent MetalToolchain | grep -q "Status: installed" || xcodebuild -downloadComponent MetalToolchain
 
       - name: Lint
         run: swift format lint --strict --recursive DevPorts DevPortsTests
