@@ -21,6 +21,8 @@ open ~/Applications/DevPorts.app
 
 Para abrir junto com o login: Ajustes do Sistema › Geral › Itens de Início › `+` › DevPorts.
 
+"Reiniciar com log" relança o comando num shell de login, com o ambiente do seu `.zshrc`, não com o ambiente original do processo. Uma variável exportada só no terminal onde o servidor foi iniciado não é repassada.
+
 ## Desenvolvimento
 
 ```sh
