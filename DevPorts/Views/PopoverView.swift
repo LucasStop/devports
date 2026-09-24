@@ -38,6 +38,7 @@ struct PopoverView: View {
             }
             if let banner = store.banner { errorBanner(banner) }
             if confirmingQuit { quitBand }
+            if let pending = store.pendingRestart { restartBand(pending.process, command: pending.plan.command) }
             Divider()
             footer(hiddenCount: overview.hiddenCount)
         }
@@ -245,6 +246,25 @@ struct PopoverView: View {
         }
     }
 
+    private func restartBand(_ process: DevProcess, command: String) -> some View {
+        HStack(spacing: 8) {
+            Text(
+                "Reiniciar com \(Text(command).font(.system(size: 11.5, design: .monospaced))) em \(process.project ?? process.group)?"
+            )
+            .font(.system(size: 12))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Reiniciar") {
+                Task { if await store.confirmRestart() { openWindow(id: "terminal") } }
+            }
+            .buttonStyle(SmallButtonStyle(color: .ok, filled: true))
+            Button("Cancelar") { store.cancelRestart() }.buttonStyle(SmallButtonStyle())
+        }
+        .padding(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+        .background(Color.ok.opacity(0.07), in: .rect(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.ok.opacity(0.25)))
+        .padding(EdgeInsets(top: 6, leading: 12, bottom: 10, trailing: 12))
+    }
+
     /// Quitting closes the ptys, which ends what the Terminal tabs started.
     private var quitBand: some View {
         let count = store.terminal.running.count
@@ -435,6 +455,9 @@ private struct RowMenu: View {
             Button("Mostrar no Finder") { store.showInFinder(process) }
         }
         Button("Copiar comando") { store.copyCommand(process) }
+        if process.isDev {
+            Button("Reiniciar com log") { Task { await store.prepareRestart(process) } }
+        }
     }
 }
 
