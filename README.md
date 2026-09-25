@@ -25,8 +25,8 @@ O plano está em [PRD.md](PRD.md) e a identidade visual em [DESIGN.md](DESIGN.md
 
 ```sh
 xcodegen
-xcodebuild -scheme DevPorts -configuration Release -derivedDataPath build -skipPackagePluginValidation
-cp -R build/Build/Products/Release/DevPorts.app ~/Applications/
+xcodebuild -scheme DevPorts -configuration Release -derivedDataPath build.noindex -skipPackagePluginValidation
+cp -R build.noindex/Build/Products/Release/DevPorts.app ~/Applications/
 open ~/Applications/DevPorts.app
 ```
 

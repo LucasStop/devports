@@ -62,6 +62,7 @@ final class TerminalSessions {
 }
 
 /// DESIGN.md's terminal colors, dark or light after the system appearance when the session opens.
+@MainActor
 private enum TerminalTheme {
     static func apply(to view: LocalProcessTerminalView) {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

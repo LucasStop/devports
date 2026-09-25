@@ -9,6 +9,7 @@ dist/
 *.xcodeproj/
 DerivedData/
 .build/
+*.noindex/
 build/
 *.xcworkspace/
 xcuserdata/
