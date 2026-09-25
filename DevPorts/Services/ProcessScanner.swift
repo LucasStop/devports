@@ -292,7 +292,7 @@ enum ProcessScanner {
     }
 
     /// One KERN_ARGMAX buffer is reused for every pid; allocating it per process would churn megabytes per refresh.
-    private static func argvs(for pids: [Int32]) -> [Int32: [String]] {
+    static func argvs(for pids: [Int32]) -> [Int32: [String]] {
         var argmax: Int32 = 0
         var size = MemoryLayout<Int32>.size
         var argmaxName: [Int32] = [CTL_KERN, KERN_ARGMAX]
