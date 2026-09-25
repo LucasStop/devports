@@ -12,11 +12,35 @@ final class TerminalSessions {
             case exited(Int32?)
         }
 
+        /// A command line the shell runs in the foreground, with everything it spawned (one process group).
+        struct Job: Equatable {
+            let pid: pid_t
+            let startedAt: Date
+            let command: String
+        }
+
+        struct Finished: Equatable {
+            let command: String
+            let duration: TimeInterval
+        }
+
         let id = UUID()
         let title: String
         let folder: String
         @ObservationIgnored let view = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 860, height: 480))
         fileprivate(set) var status = Status.running
+        fileprivate(set) var job: Job?
+        fileprivate(set) var ports: [ListeningPort] = []
+        /// When Parar sent Ctrl-C; the bar offers Forçar 5 s later.
+        fileprivate(set) var stopSent: Date?
+        fileprivate(set) var finished: Finished?
+        /// What DevPorts typed; it names the next job, since node may rewrite the argv it would be read from.
+        @ObservationIgnored fileprivate var typed: String?
+        @ObservationIgnored fileprivate var restartPending = false
+
+        var bar: SessionBar {
+            SessionBar(status: status, job: job, ports: ports, stopSent: stopSent, finished: finished)
+        }
 
         init(title: String, folder: String) {
             self.title = title
@@ -40,7 +64,7 @@ final class TerminalSessions {
         session.view.startProcess(
             executable: "/bin/zsh", environment: Terminal.getEnvironmentVariables(termName: "xterm-256color"),
             execName: "-zsh", currentDirectory: folder)
-        if let command { session.view.send(txt: command + "\r") }
+        if let command { type(command, in: session) }
         sessions.append(session)
         selected = session.id
     }
@@ -58,6 +82,83 @@ final class TerminalSessions {
 
     func closeAll() {
         sessions.forEach(close)
+    }
+
+    func stop(_ session: Session) {
+        session.stopSent = .now
+        session.view.send(txt: "\u{03}")
+    }
+
+    /// With a job running, Ctrl-C now and the command again when `poll` sees the job gone; otherwise reruns the
+    /// last command.
+    func restart(_ session: Session) {
+        if session.job != nil {
+            session.restartPending = true
+            stop(session)
+        } else if let finished = session.finished {
+            type(finished.command, in: session)
+        }
+    }
+
+    /// Reads each tab's foreground job from the pty, which is the shell itself while it waits at the prompt. Ports
+    /// come from the latest scan, matched by process group so a server spawned under `sh -c` still counts.
+    func poll(processes: [DevProcess]) {
+        for session in sessions where session.status == .running {
+            let group = tcgetpgrp(session.view.process.childfd)
+            if group > 0, group != session.view.process.shellPid {
+                if session.job?.pid != group, let start = ProcessKiller.startTime(group) {
+                    let argv = ProcessScanner.argvs(for: [group])[group] ?? []
+                    let command = session.typed ?? (argv.isEmpty ? "pid \(group)" : Restart.command(argv: argv))
+                    session.typed = nil
+                    session.job = Session.Job(pid: group, startedAt: start, command: command)
+                    session.finished = nil
+                }
+                let ports = processes.filter { !$0.ports.isEmpty && ProcessKiller.processGroup($0.pid) == group }
+                    .flatMap(\.ports).filter { !$0.isDynamic }
+                if session.ports != ports { session.ports = ports }
+            } else if let job = session.job {
+                session.finished = Session.Finished(
+                    command: job.command, duration: Date.now.timeIntervalSince(job.startedAt))
+                session.job = nil
+                session.ports = []
+                session.stopSent = nil
+                if session.restartPending {
+                    session.restartPending = false
+                    type(job.command, in: session)
+                }
+            }
+        }
+    }
+
+    private func type(_ command: String, in session: Session) {
+        session.typed = command
+        session.view.send(txt: command + "\r")
+    }
+}
+
+/// What the bar under a tab shows, derived from the session alone so it can be tested without a terminal.
+enum SessionBar: Equatable {
+    case running(TerminalSessions.Session.Job, ports: [ListeningPort])
+    case stopping(TerminalSessions.Session.Job, since: Date)
+    case finished(TerminalSessions.Session.Finished)
+    case idle
+    case shellExited(Int32?)
+
+    init(
+        status: TerminalSessions.Session.Status, job: TerminalSessions.Session.Job?, ports: [ListeningPort],
+        stopSent: Date?, finished: TerminalSessions.Session.Finished?
+    ) {
+        if case .exited(let code) = status {
+            self = .shellExited(code)
+        } else if let job, let stopSent {
+            self = .stopping(job, since: stopSent)
+        } else if let job {
+            self = .running(job, ports: ports)
+        } else if let finished {
+            self = .finished(finished)
+        } else {
+            self = .idle
+        }
     }
 }
 

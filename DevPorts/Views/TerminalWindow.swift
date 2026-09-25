@@ -12,6 +12,8 @@ struct TerminalWindow: View {
             Divider()
             if let session = terminal.sessions.first(where: { $0.id == terminal.selected }) {
                 SessionView(session: session).id(session.id)
+                Divider()
+                SessionBarView(store: store, session: session)
             } else {
                 ActionsLog(entries: store.log)
             }
@@ -21,8 +23,18 @@ struct TerminalWindow: View {
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate()
+            store.isTerminalOpen = true
         }
-        .onDisappear { NSApp.setActivationPolicy(.accessory) }
+        .onDisappear {
+            NSApp.setActivationPolicy(.accessory)
+            store.isTerminalOpen = false
+        }
+        .task {
+            while !Task.isCancelled {
+                terminal.poll(processes: store.processes)
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
     }
 
     private var tabs: some View {
@@ -81,6 +93,78 @@ private struct SessionView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> LocalProcessTerminalView { session.view }
     func updateNSView(_ view: LocalProcessTerminalView, context: Context) {}
+}
+
+/// Under each tab: what its shell is running, on which port, for how long, and how to stop or rerun it.
+private struct SessionBarView: View {
+    let store: Store
+    let session: TerminalSessions.Session
+
+    var body: some View {
+        // Ticks each second for "há 2 min" and for Forçar, which appears 5 s after Parar.
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            HStack(spacing: 8) {
+                content(now: context.date)
+            }
+            .font(.system(size: 11.5))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.leading, 14)
+            .padding(.trailing, 10)
+            .frame(height: 34)
+        }
+    }
+
+    @ViewBuilder
+    private func content(now: Date) -> some View {
+        switch session.bar {
+        case .running(let job, let ports):
+            led(.ok)
+            Text("rodando").foregroundStyle(.primary)
+            Text("· \(job.command) · pid \(job.pid)").truncationMode(.middle)
+            ForEach(ports, id: \.number) { port in
+                Text(":\(port.number)").monospacedDigit()
+                if port.isExposed { Badge(text: "REDE", color: .warning, textColor: .warningText) }
+            }
+            Text("· há \(Format.uptime(now.timeIntervalSince(job.startedAt)))")
+            Spacer(minLength: 8)
+            if let port = ports.first {
+                Button("Abrir :\(port.number)") { store.openInBrowser(port.number) }
+            }
+            Button("Reiniciar") { store.restartJob(in: session) }
+            Button("Parar", role: .destructive) { store.stopJob(in: session) }.tint(.danger)
+        case .stopping(let job, let since):
+            let waited = now.timeIntervalSince(since)
+            led(.warning)
+            Text("parando").foregroundStyle(.primary)
+            Text("· \(job.command) · pid \(job.pid)").truncationMode(.middle)
+            Text(waited < 5 ? "· aguardando \(Int(5 - waited)) s" : "· não respondeu em 5 s")
+            Spacer(minLength: 8)
+            if waited >= 5 {
+                Button("Forçar", role: .destructive) { store.forceJob(in: session) }.tint(.danger)
+            }
+        case .finished(let finished):
+            led(.idle)
+            Text("terminou").foregroundStyle(.primary)
+            Text("· \(finished.command) · durou \(Format.uptime(finished.duration))").truncationMode(.middle)
+            Spacer(minLength: 8)
+            Button("Rodar de novo") { store.restartJob(in: session) }
+        case .idle:
+            led(.idle)
+            Text("zsh").foregroundStyle(.primary)
+            Text("· \(session.folder)").truncationMode(.head)
+            Spacer(minLength: 8)
+            Button("Mostrar no Finder") { NSWorkspace.shared.open(URL(fileURLWithPath: session.folder)) }
+        case .shellExited(let code):
+            led(code == 0 ? .idle : .danger)
+            Text(code.map { "shell encerrado com código \($0)" } ?? "shell encerrado").foregroundStyle(.primary)
+            Spacer()
+        }
+    }
+
+    private func led(_ color: SwiftUI.Color) -> some View {
+        Circle().fill(color).frame(width: 7, height: 7).accessibilityHidden(true)
+    }
 }
 
 private struct ActionsLog: View {
