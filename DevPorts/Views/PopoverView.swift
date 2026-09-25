@@ -531,7 +531,7 @@ private struct Led: View {
     }
 }
 
-private struct Badge: View {
+struct Badge: View {
     let text: String
     let color: Color
     /// Darker than the LED in light mode, for contrast on the tinted background (DESIGN.md).

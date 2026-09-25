@@ -43,11 +43,26 @@ final class ProcessKiller {
     }
 
     static func startTime(_ pid: pid_t) -> Date? {
+        guard let start = info(pid)?.kp_proc.p_un.__p_starttime else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
+    }
+
+    /// The job a process belongs to: a shell puts each command line, with everything it spawns, in one group.
+    static func processGroup(_ pid: pid_t) -> pid_t? { info(pid)?.kp_eproc.e_pgid }
+
+    /// KILLs the whole job, after checking that its leader is still the process that started at `startedAt`.
+    static func killGroup(_ leader: pid_t, startedAt: Date) -> Outcome {
+        guard let current = startTime(leader) else { return .gone }
+        guard Int(current.timeIntervalSince1970) == Int(startedAt.timeIntervalSince1970) else { return .pidReused }
+        if kill(-leader, SIGKILL) == 0 { return .sent(SIGKILL) }
+        return errno == ESRCH ? .gone : .notPermitted
+    }
+
+    private static func info(_ pid: pid_t) -> kinfo_proc? {
         var info = kinfo_proc()
         var size = MemoryLayout<kinfo_proc>.stride
         var name: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
         guard sysctl(&name, 4, &info, &size, nil, 0) == 0, size > 0 else { return nil }
-        let start = info.kp_proc.p_un.__p_starttime
-        return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
+        return info
     }
 }

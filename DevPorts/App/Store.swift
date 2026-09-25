@@ -32,17 +32,29 @@ final class Store {
     @ObservationIgnored private let killer = ProcessKiller()
     @ObservationIgnored let terminal = TerminalSessions()
 
-    init() { setPopoverOpen(false) }
+    @ObservationIgnored private var isPopoverOpen = false
+    /// Session bars show a job's ports, so the scan keeps the popover's pace while the Terminal window is open.
+    @ObservationIgnored var isTerminalOpen = false {
+        didSet { restartPolling() }
+    }
+
+    init() { restartPolling() }
 
     var devPortCount: Int { Overview(processes: processes).ports.count }
 
     /// Restarts polling with a scan right away, so opening the popover never shows data 30 s old.
     func setPopoverOpen(_ isOpen: Bool) {
+        isPopoverOpen = isOpen
+        restartPolling()
+    }
+
+    private func restartPolling() {
+        let interval = isPopoverOpen || isTerminalOpen ? 5 : 30
         polling?.cancel()
         polling = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refresh()
-                try? await Task.sleep(for: .seconds(isOpen ? 5 : 30))
+                try? await Task.sleep(for: .seconds(interval))
             }
         }
     }
@@ -129,6 +141,26 @@ final class Store {
         openTerminal(
             title: "\(process.project ?? process.label) · reinício", folder: plan.folder, command: plan.command)
         return true
+    }
+
+    /// Ctrl-C, as if typed in the tab: the shell stays, and only its foreground job gets SIGINT.
+    func stopJob(in session: TerminalSessions.Session) {
+        guard let job = session.job else { return }
+        terminal.stop(session)
+        log.append(LogEntry(command: "^C  # pid \(job.pid), aba \(session.title)", result: "enviado"))
+    }
+
+    /// Stops the job and types its command again in the same tab once it has exited; or reruns a finished one.
+    func restartJob(in session: TerminalSessions.Session) {
+        terminal.restart(session)
+        log.append(LogEntry(command: "^C && !!  # aba \(session.title)", result: "reinício na mesma aba"))
+    }
+
+    func forceJob(in session: TerminalSessions.Session) {
+        guard let job = session.job else { return }
+        let outcome = ProcessKiller.killGroup(job.pid, startedAt: job.startedAt)
+        log.append(LogEntry(command: "kill -KILL -\(job.pid)  # aba \(session.title)", result: Self.describe(outcome)))
+        if outcome == .notPermitted { banner = "Sem permissão para encerrar o pid \(job.pid)." }
     }
 
     func openInBrowser(_ port: Int) {
