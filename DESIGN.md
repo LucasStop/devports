@@ -15,7 +15,7 @@ Aprovado em 2026-09-23 no canvas de design (privado do autor): ícone A, glifo 4
 - **Ícone do app (A · Porta):** corpo alumínio `#ECEEF1` em squircle (824/1024), soquete `#1C1F24` com recorte RJ45, 8 pinos `#D4A72C`, LED verde `#2FBF71` à esquerda e âmbar `#F2A531` à direita.
   - `design/icon.svg`: arte mestre, usada de 64 px para cima.
   - `design/icon-small.svg`: versão de 16 e 32 px, sem pinos, soquete e LEDs maiores.
-- **Glifo da barra de menus (4 · Porta):** `design/glyph.svg`, template monocromático, traço 1,8 em grade 24, exibido a 16 pt.
+- **Glifo da barra de menus (4 · Porta):** `design/glyph.svg`, template monocromático, traço 1,8 em grade 24, recortado em 18 unidades e exibido a 18 pt, para não ficar pequeno na barra.
   - O contador de portas dev fica ao lado, em SF Pro 13 medium, e some quando é zero.
 
 ## Cores (tokens)
