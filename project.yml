@@ -37,9 +37,8 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: ""
-        CODE_SIGNING_REQUIRED: NO
-        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: Apple Development
+        DEVELOPMENT_TEAM: 69D4S5TF8S
 
   DevPortsTests:
     type: bundle.unit-test
@@ -52,6 +51,5 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lucasstopinski.DevPortsTests
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: ""
-        CODE_SIGNING_REQUIRED: NO
-        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: Apple Development
+        DEVELOPMENT_TEAM: 69D4S5TF8S
