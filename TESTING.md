@@ -34,6 +34,8 @@ xcodebuild test -project DevPorts.xcodeproj -scheme DevPorts -destination 'platf
 
 ## Rodada E2E
 
+O que depende de teclado no popover está em [MANUAL-TESTS.md](MANUAL-TESTS.md).
+
 Resultado: ok, parcial (o que faltou está dito), inconclusivo, roteiro manual (depende de teclado no popover, que a automação não alcança) ou não verificado. Evidência: screenshot da UI e saída do sistema.
 
 | # | Cenário | Resultado |
