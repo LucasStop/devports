@@ -117,12 +117,14 @@ final class Store {
         let scanner = activityScanner
         let nodes = await Task.detached(priority: .userInitiated) { scanner.scan() }.value
         let now = Date.now
+        activityNodes = nodes
         if let previous = previousCPU {
-            cpu = Activity.cpuPercent(
-                now: nodes, previous: previous.seconds, interval: now.timeIntervalSince(previous.date))
+            // `ps time` counts in 0.01 s: over a few ms (two refreshes racing) that alone reads as hundreds of %.
+            let interval = now.timeIntervalSince(previous.date)
+            guard interval >= 1 else { return }
+            cpu = Activity.cpuPercent(now: nodes, previous: previous.seconds, interval: interval)
         }
         previousCPU = (now, Dictionary(nodes.map { ($0.key, $0.cpuSeconds) }, uniquingKeysWith: { first, _ in first }))
-        activityNodes = nodes
     }
 
     func suspendApp(_ app: Activity.App) { toggleApp(app, stop: true) }
@@ -134,7 +136,8 @@ final class Store {
     private func toggleApp(_ app: Activity.App, stop: Bool) {
         var sent = 0
         var denied: ProcessNode?
-        for node in app.members {
+        // A helper stopped before (Ctrl-Z, another tool) is not ours: no STOP now, and no CONT on quit.
+        for node in app.members where !(stop && node.isSuspended) {
             let outcome =
                 stop
                 ? killer.suspend(pid: node.pid, startedAt: node.startedAt)
@@ -177,7 +180,8 @@ final class Store {
             LogEntry(
                 command: "kill -\(stop ? "STOP" : "CONT") \(process.pid)  # \(note)", result: Self.describe(outcome)))
         switch outcome {
-        case .sent, .gone: break
+        case .sent: pausedByUs[process.pid] = stop ? process.startedAt : nil
+        case .gone: break
         case .notPermitted:
             banner =
                 "Sem permissão para \(stop ? "suspender" : "retomar") \(process.label) (pid \(process.pid)). Ele pertence a outro usuário."
