@@ -10,8 +10,8 @@ struct AppsView: View {
     @State private var expanded: Set<String> = []
     @State private var confirming: String?
 
-    /// Same cap as the ports list: DESIGN.md limits the popover to 660 pt.
-    private static let maxHeight: CGFloat = 533
+    /// The ports cap (497) minus this view's own two header rows (44): DESIGN.md limits the popover to 660 pt.
+    private static let maxHeight: CGFloat = 453
     private var sort: Activity.Sort { Activity.Sort(rawValue: sortRaw) ?? .cpu }
 
     var body: some View {
@@ -71,7 +71,7 @@ struct AppsView: View {
     private func row(_ app: Activity.App) -> some View {
         let isOpen = expanded.contains(app.id)
         let locked = app.kind != .normal
-        let isSystem = app.members.contains { $0.uid != getuid() }
+        let isSystem = app.members.first.map { $0.uid != getuid() } ?? false
         return VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Button {
