@@ -37,7 +37,8 @@ O encerramento é seguro, e um terminal integrado permite reiniciar servidores c
 - **Plataforma:**
   - SwiftUI, com AppKit onde precisar;
   - `MenuBarExtra` com estilo `.window` e `LSUIElement` (sem ícone no Dock);
-  - a janela Terminal troca a política de ativação para `.regular` enquanto está aberta.
+  - a janela Terminal troca a política de ativação para `.regular` enquanto está aberta;
+  - o Terminal é a terceira aba do popover (padrão) e também abre em janela; `TerminalSessions.host` decide qual dos dois monta as views (uma `NSView` só tem um pai).
 - **Projeto:** XcodeGen, macOS 14+, Swift 6.0, sem assinatura (uso pessoal). Mesmo layout do claude-control-panel.
 - **Coleta** (polling a cada 5 s e ao abrir o popover):
   - portas: `lsof -nP -iTCP -sTCP:LISTEN -Fpn`;

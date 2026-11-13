@@ -6,12 +6,13 @@ struct AppsView: View {
     let store: Store
     let query: String
     let showSystem: Bool
+    var fills = false
     @AppStorage("appsSort") private var sortRaw = Activity.Sort.cpu.rawValue
     @State private var expanded: Set<String> = []
     @State private var confirming: String?
 
-    /// The ports cap (497) minus this view's own two header rows (44): DESIGN.md limits the popover to 660 pt.
-    private static let maxHeight: CGFloat = 453
+    /// The ports cap (531) minus this view's own two header rows (44): DESIGN.md limits the popover to 660 pt.
+    private static let maxHeight: CGFloat = 487
     private var sort: Activity.Sort { Activity.Sort(rawValue: sortRaw) ?? .cpu }
 
     var body: some View {
@@ -37,7 +38,8 @@ struct AppsView: View {
                     }
                     .padding(.bottom, 6)
                 }
-                .frame(height: min(height(of: apps), Self.maxHeight))
+                .frame(height: fills ? nil : min(height(of: apps), Self.maxHeight))
+                .frame(maxHeight: fills ? .infinity : nil)
             }
         }
     }
