@@ -1,6 +1,15 @@
 import Darwin
 import Foundation
 
+/// What `Store` needs from a scan; previews swap in a fake so no rows come from the real machine.
+protocol ProcessScanning: Sendable {
+    func scan() -> [DevProcess]
+}
+
+struct SystemScanner: ProcessScanning {
+    func scan() -> [DevProcess] { ProcessScanner.scan() }
+}
+
 /// Reads listening ports and dev processes from lsof, ps and sysctl. The parsers are pure so tests can feed them
 /// captured output; `scan` is the only part that touches the system.
 enum ProcessScanner {

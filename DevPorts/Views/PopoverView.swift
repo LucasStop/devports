@@ -557,3 +557,30 @@ extension DevProcess {
 private func counted(_ count: Int, _ singular: String, _ plural: String) -> String {
     "\(count) \(count == 1 ? singular : plural)"
 }
+
+#if DEBUG
+    #Preview("Com processos") {
+        PopoverView(store: .preview(Sample.all))
+    }
+
+    #Preview("Vazio") {
+        PopoverView(store: .preview([]))
+    }
+
+    #Preview("Encerrando") {
+        PopoverView(store: .preview(Sample.all, stopping: [Sample.site.pid: .waiting]))
+    }
+
+    #Preview("Não respondeu") {
+        PopoverView(store: .preview(Sample.all, stopping: [Sample.site.pid: .unresponsive]))
+    }
+
+    #Preview("Confirmando") {
+        // `confirming` is the popover's own @State, so the row is shown on its own.
+        VStack(spacing: 0) {
+            ProcessRowView(
+                process: Sample.system, store: .preview(Sample.all), confirming: .constant("pid:\(Sample.system.pid)"))
+        }
+        .frame(width: 440)
+    }
+#endif
