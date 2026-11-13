@@ -29,7 +29,32 @@ final class Store {
     /// A restart waiting on its inline confirmation, which shows the exact command.
     private(set) var pendingRestart: (process: DevProcess, plan: Restart.Plan)?
     @ObservationIgnored private var polling: Task<Void, Never>?
-    @ObservationIgnored private let killer = ProcessKiller()
+    @ObservationIgnored private let killer: ProcessKiller
+    @ObservationIgnored private let activityScanner: any ActivityScanning
+
+    /// Every process of the machine, scanned only while the Apps tab is open.
+    private(set) var activityNodes: [ProcessNode] = []
+    /// CPU % by process; nil until a second scan gives something to compare with.
+    private(set) var cpu: [String: Double]?
+    @ObservationIgnored private var previousCPU: (date: Date, seconds: [String: Double])?
+    /// What this app suspended, by pid and start time; everything here is continued on quit.
+    @ObservationIgnored private var pausedByUs: [Int32: Date] = [:]
+    var isAppsTabOpen = false {
+        didSet {
+            guard isAppsTabOpen != oldValue else { return }
+            if !isAppsTabOpen {
+                cpu = nil
+                previousCPU = nil
+                return
+            }
+            // A second reading shortly after the first, so "—" does not linger for a whole polling interval.
+            Task {
+                await refresh()
+                try? await Task.sleep(for: .seconds(2))
+                await refresh()
+            }
+        }
+    }
     @ObservationIgnored let terminal = TerminalSessions()
 
     @ObservationIgnored private var isPopoverOpen = false
@@ -42,10 +67,20 @@ final class Store {
     /// Off in previews, which seed their own rows.
     @ObservationIgnored private let autoRefresh: Bool
 
-    init(scanner: any ProcessScanning = SystemScanner(), autoRefresh: Bool = true) {
+    init(
+        scanner: any ProcessScanning = SystemScanner(), autoRefresh: Bool = true,
+        activityScanner: any ActivityScanning = SystemActivityScanner(), killer: ProcessKiller = ProcessKiller()
+    ) {
         self.scanner = scanner
         self.autoRefresh = autoRefresh
+        self.activityScanner = activityScanner
+        self.killer = killer
         restartPolling()
+        if autoRefresh {
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+            ) { [weak self] _ in MainActor.assumeIsolated { self?.resumeAllPaused() } }
+        }
     }
 
     var devPortCount: Int { Overview(processes: processes).ports.count }
@@ -73,6 +108,59 @@ final class Store {
         processes = await Task.detached(priority: .userInitiated) { scanner.scan() }.value
         let alive = Set(processes.map(\.pid))
         stopping = stopping.filter { alive.contains($0.key) }
+        if isAppsTabOpen { await refreshActivity() }
+    }
+
+    private func refreshActivity() async {
+        let scanner = activityScanner
+        let nodes = await Task.detached(priority: .userInitiated) { scanner.scan() }.value
+        let now = Date.now
+        if let previous = previousCPU {
+            cpu = Activity.cpuPercent(
+                now: nodes, previous: previous.seconds, interval: now.timeIntervalSince(previous.date))
+        }
+        previousCPU = (now, Dictionary(nodes.map { ($0.key, $0.cpuSeconds) }, uniquingKeysWith: { first, _ in first }))
+        activityNodes = nodes
+    }
+
+    func suspendApp(_ app: Activity.App) { toggleApp(app, stop: true) }
+
+    func resumeApp(_ app: Activity.App) { toggleApp(app, stop: false) }
+
+    /// STOP or CONT for the app and every helper. Stopping goes oldest first, so the app cannot respawn a helper
+    /// after its helpers were stopped.
+    private func toggleApp(_ app: Activity.App, stop: Bool) {
+        var sent = 0
+        var denied: ProcessNode?
+        for node in app.members {
+            let outcome =
+                stop
+                ? killer.suspend(pid: node.pid, startedAt: node.startedAt)
+                : killer.resume(pid: node.pid, startedAt: node.startedAt)
+            switch outcome {
+            case .sent:
+                sent += 1
+                if stop { pausedByUs[node.pid] = node.startedAt } else { pausedByUs[node.pid] = nil }
+            case .notPermitted: denied = denied ?? node
+            case .gone, .pidReused: break
+            }
+        }
+        let command = "kill -\(stop ? "STOP" : "CONT") \(app.members.count) processos  # \(app.name)"
+        log.append(LogEntry(command: command, result: denied == nil ? "enviado a \(sent)" : "sem permissão"))
+        if let denied {
+            banner =
+                "Sem permissão para \(stop ? "pausar" : "retomar") \(denied.executable) (pid \(denied.pid)). Ele pertence a outro usuário."
+        }
+        Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            await refresh()
+        }
+    }
+
+    /// Continues everything this app suspended; runs on quit so no app is left frozen.
+    func resumeAllPaused() {
+        for (pid, startedAt) in pausedByUs { _ = killer.resume(pid: pid, startedAt: startedAt) }
+        pausedByUs = [:]
     }
 
     /// SIGSTOP/SIGCONT one dev process; the next scan shows the new state (ps `T`).
@@ -230,10 +318,15 @@ final class Store {
 #if DEBUG
     extension Store {
         /// A store frozen on `processes`, with rows already mid-termination; same file so it can reach the private setters.
-        static func preview(_ processes: [DevProcess], stopping: [Int32: Stopping] = [:]) -> Store {
+        static func preview(
+            _ processes: [DevProcess], stopping: [Int32: Stopping] = [:], nodes: [ProcessNode] = [],
+            cpu: [String: Double]? = nil
+        ) -> Store {
             let store = Store(scanner: PreviewScanner(processes: processes), autoRefresh: false)
             store.processes = processes
             store.stopping = stopping
+            store.activityNodes = nodes
+            store.cpu = cpu
             return store
         }
     }

@@ -46,6 +46,39 @@
         static let all = [site, panel, exposed, worker, system]
     }
 
+    extension Sample {
+        private static func node(
+            _ pid: Int32, _ ppid: Int32, _ path: String, mem: Int64, stopped: Bool = false, uid: UInt32 = getuid()
+        ) -> ProcessNode {
+            ProcessNode(
+                pid: pid, ppid: ppid, uid: uid, path: path, memoryBytes: mem * 1_048_576, cpuSeconds: 0,
+                startedAt: Date(timeIntervalSince1970: 1_790_000_000 + Double(pid)), isSuspended: stopped)
+        }
+
+        /// Chrome with two helpers, Slack stopped, Finder (protected), mds as root.
+        static let appNodes: [ProcessNode] = [
+            node(100, 1, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", mem: 900),
+            node(
+                101, 100,
+                "/Applications/Google Chrome.app/Contents/Frameworks/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)",
+                mem: 412),
+            node(
+                102, 100,
+                "/Applications/Google Chrome.app/Contents/Frameworks/Helpers/Google Chrome Helper (GPU).app/Contents/MacOS/Google Chrome Helper (GPU)",
+                mem: 388),
+            node(200, 1, "/Applications/Xcode.app/Contents/MacOS/Xcode", mem: 3400),
+            node(300, 1, "/Applications/Slack.app/Contents/MacOS/Slack", mem: 812, stopped: true),
+            node(400, 1, "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder", mem: 210),
+            node(500, 1, "/Applications/TextEdit.app/Contents/MacOS/TextEdit", mem: 64),
+        ]
+
+        static var appCPU: [String: Double] {
+            let nodes = appNodes
+            let values: [Int32: Double] = [100: 4.2, 101: 3.2, 102: 5.1, 200: 8.1, 300: 0, 400: 0.3, 500: 0]
+            return Dictionary(uniqueKeysWithValues: nodes.map { ($0.key, values[$0.pid] ?? 0) })
+        }
+    }
+
     struct PreviewScanner: ProcessScanning {
         let processes: [DevProcess]
         func scan() -> [DevProcess] { processes }

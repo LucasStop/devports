@@ -45,16 +45,18 @@ final class ProcessKiller {
     }
 
     /// SIGSTOP the process itself (not its group), after the same start-time check as `terminate`.
-    func suspend(_ process: DevProcess) -> Outcome { signal(process, SIGSTOP) }
+    func suspend(_ process: DevProcess) -> Outcome { signal(process.pid, process.startedAt, SIGSTOP) }
 
-    func resume(_ process: DevProcess) -> Outcome { signal(process, SIGCONT) }
+    func resume(_ process: DevProcess) -> Outcome { signal(process.pid, process.startedAt, SIGCONT) }
 
-    private func signal(_ process: DevProcess, _ signal: Int32) -> Outcome {
-        guard let current = startTime(process.pid) else { return .gone }
-        guard Int(current.timeIntervalSince1970) == Int(process.startedAt.timeIntervalSince1970) else {
-            return .pidReused
-        }
-        switch send(process.pid, signal) {
+    func suspend(pid: pid_t, startedAt: Date) -> Outcome { signal(pid, startedAt, SIGSTOP) }
+
+    func resume(pid: pid_t, startedAt: Date) -> Outcome { signal(pid, startedAt, SIGCONT) }
+
+    private func signal(_ pid: pid_t, _ startedAt: Date, _ signal: Int32) -> Outcome {
+        guard let current = startTime(pid) else { return .gone }
+        guard Int(current.timeIntervalSince1970) == Int(startedAt.timeIntervalSince1970) else { return .pidReused }
+        switch send(pid, signal) {
         case 0: return .sent(signal)
         case ESRCH: return .gone
         default: return .notPermitted

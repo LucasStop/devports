@@ -61,6 +61,7 @@ Aprovado em 2026-09-23 no canvas de design (privado do autor): ícone A, glifo 4
 
 ## Componentes (padrões)
 - **Linha de porta:** LED 7 pt · porta em SF Mono (58 pt) · título, com selo `REDE` quando exposta · metadados (`projeto · exe · uptime · RAM`) · botões ↗, ⏸/▶ (só linha dev) e ✕ de 26 pt. Suspenso: LED cinza, selo `SUSPENSO` e texto secundário; o ⏸ avisa que a porta continua ocupada.
+- **Aba Apps:** seletor `Portas | Apps` abaixo do título. Linha: chevron · inicial do app · nome (selos `SISTEMA` e `SUSPENSO`) e `N processos` · CPU % (`—` na primeira leitura) · memória · ⏸/▶ de 26 pt. Pausar um app com helpers pede confirmação com a contagem. Protegidos e processos de outro usuário mostram cadeado no lugar do botão. Ordenar por CPU (padrão) ou Memória no cabeçalho da coluna.
 - **Grupo de processos:** chevron · nome (projeto, `~/pasta` ou "Sistema") · `N processos · RAM`. Aberto, mostra os processos filhos e "Encerrar todos".
 - **Botões:** pequeno (24 pt) com borda sutil; destrutivo em vermelho; primário preenchido com o destaque. Botões só de ícone com 26 pt e `accessibilityLabel`.
 - **Confirmação:** faixa inline tingida (vermelha para destruir, verde para reiniciar) com botão primário e Cancelar. Nunca modal, porque o `MenuBarExtra` fecha quando um alert abre.
