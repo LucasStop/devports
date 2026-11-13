@@ -10,31 +10,70 @@ struct PopoverView: View {
     /// The row or group waiting on its inline "Encerrar" confirmation.
     @State private var confirming: String?
     @State private var confirmingQuit = false
-    private enum Tab: String, CaseIterable {
-        case ports = "Portas"
-        case apps = "Apps"
-    }
-    @State private var tab: Tab
-
-    init(store: Store, startOnApps: Bool = false) {
-        self.store = store
-        _tab = State(initialValue: startOnApps ? .apps : .ports)
-    }
+    @State private var showSettings = false
+    @AppStorage("popoverSizes") private var sizes = PopoverSizes()
+    @AppStorage("terminalHost") private var placement = TerminalSessions.Host.popover
     @Environment(\.openWindow) private var openWindow
 
-    /// DESIGN.md caps the popover at 660 pt; header, tab picker, search field and footer take 163 of them.
-    private static let maxListHeight: CGFloat = 497
+    private var tab: PopoverTab {
+        get { store.tab }
+        nonmutating set { store.tab = newValue }
+    }
+
+    init(store: Store, startOn tab: PopoverTab = .ports) {
+        self.store = store
+        store.tab = tab
+    }
+
+    /// The Terminal tab has no search, no system toggle and no height cap of its own.
+    private var size: PanelSize {
+        showSettings ? PanelSize() : sizes.size(for: tab, terminalHost: placement)
+    }
+
+    /// DESIGN.md caps the popover at 660 pt; tab row, search field and footer take 129 of them.
+    private static let maxListHeight: CGFloat = 531
 
     var body: some View {
         let overview = Overview(
             processes: store.processes, query: query, showSystem: showSystem,
             isPortTaken: ProcessScanner.isPortTaken)
         VStack(spacing: 0) {
-            header
-            tabPicker
-            searchField
-            if tab == .apps {
-                AppsView(store: store, query: query, showSystem: showSystem)
+            if showSettings {
+                AjustesView(sizes: $sizes, placement: $placement) { showSettings = false }
+            } else {
+                content(overview)
+            }
+            if let banner = store.banner { errorBanner(banner) }
+            if confirmingQuit { quitBand }
+            if let pending = store.pendingRestart { restartBand(pending.process, command: pending.plan.command) }
+            if size.height != nil { Spacer(minLength: 0) }
+            Divider()
+            footer(hiddenCount: tab == .ports ? overview.hiddenCount : nil)
+        }
+        .frame(width: size.width, height: size.height.map { CGFloat($0) }, alignment: .top)
+        .onAppear {
+            store.setPopoverOpen(true)
+            store.isAppsTabOpen = tab == .apps
+        }
+        .onDisappear {
+            store.setPopoverOpen(false)
+            store.isAppsTabOpen = false
+        }
+        .onChange(of: tab) { store.isAppsTabOpen = tab == .apps }
+    }
+
+    @ViewBuilder
+    private func content(_ overview: Overview) -> some View {
+        let fills = size.height != nil
+        VStack(spacing: 0) {
+            tabRow
+            if tab != .terminal { searchField }
+            if tab == .terminal {
+                TerminalContent(
+                    store: store, terminal: store.terminal, host: .popover, compact: true,
+                    terminalHeight: fills ? nil : 300)
+            } else if tab == .apps {
+                AppsView(store: store, query: query, showSystem: showSystem, fills: fills)
             } else if overview.ports.isEmpty && overview.groups.isEmpty {
                 emptyState(overview.searchedPort)
             } else {
@@ -47,55 +86,36 @@ struct PopoverView: View {
                 }
                 // The window sizes to its content and a ScrollView has no height of its own, so it gets the list's,
                 // up to the cap. An exact height also lets the popover shrink when a search leaves fewer rows.
-                .frame(height: min(listHeight, Self.maxListHeight))
+                .frame(height: fills ? nil : min(listHeight, Self.maxListHeight))
+                .frame(maxHeight: fills ? .infinity : nil)
             }
-            if let banner = store.banner { errorBanner(banner) }
-            if confirmingQuit { quitBand }
-            if let pending = store.pendingRestart { restartBand(pending.process, command: pending.plan.command) }
-            Divider()
-            footer(hiddenCount: tab == .apps ? nil : overview.hiddenCount)
         }
-        .frame(width: 440)
-        .onAppear {
-            store.setPopoverOpen(true)
-            store.isAppsTabOpen = tab == .apps
-        }
-        .onDisappear {
-            store.setPopoverOpen(false)
-            store.isAppsTabOpen = false
-        }
-        .onChange(of: tab) { store.isAppsTabOpen = tab == .apps }
     }
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(.menuBarGlyph)
-            Text("DevPorts").font(.system(size: 13, weight: .semibold))
-            Spacer()
-            Button {
-                Task { await store.refresh() }
-            } label: {
-                Image(systemName: "arrow.clockwise").frame(width: 26, height: 26)
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut("r")
-            .help("Atualizar agora")
-            .accessibilityLabel("Atualizar agora")
-            Button {
-                openWindow(id: "terminal")
-            } label: {
-                Image(systemName: "terminal").frame(width: 26, height: 26)
-            }
-            .buttonStyle(.borderless)
-            .help("Abrir terminal")
-            .accessibilityLabel("Abrir terminal")
+    private var refreshButton: some View {
+        Button {
+            Task { await store.refresh() }
+        } label: {
+            Image(systemName: "arrow.clockwise").frame(width: 26, height: 26)
         }
-        .padding(EdgeInsets(top: 12, leading: 14, bottom: 8, trailing: 10))
+        .buttonStyle(.borderless)
+        .keyboardShortcut("r")
+        .help("Atualizar agora")
+        .accessibilityLabel("Atualizar agora")
+    }
+
+    /// Always the top row: tabs, then refresh on the right. The search field sits right under it.
+    private var tabRow: some View {
+        HStack(spacing: 6) {
+            tabPicker
+            refreshButton
+        }
+        .padding(EdgeInsets(top: 12, leading: 12, bottom: 8, trailing: 8))
     }
 
     private var tabPicker: some View {
         HStack(spacing: 2) {
-            ForEach(Tab.allCases, id: \.self) { item in
+            ForEach(PopoverTab.allCases, id: \.self) { item in
                 Button {
                     tab = item
                 } label: {
@@ -115,7 +135,6 @@ struct PopoverView: View {
         }
         .padding(2)
         .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 8))
-        .padding(EdgeInsets(top: 0, leading: 12, bottom: 8, trailing: 12))
     }
 
     private var searchField: some View {
@@ -229,7 +248,7 @@ struct PopoverView: View {
         if let folder = group.processes.lazy.compactMap({ $0.projectPath ?? $0.cwd }).first {
             Button("Terminal na pasta") {
                 store.openTerminal(title: group.name, folder: folder)
-                openWindow(id: "terminal")
+                store.showTerminal(open: openWindow)
             }
             if let scripts = ProjectScripts.read(root: folder) {
                 Menu("Scripts") {
@@ -238,7 +257,7 @@ struct PopoverView: View {
                             store.openTerminal(
                                 title: "\(group.name) · \(name)", folder: folder,
                                 command: "\(scripts.manager) run \(name)")
-                            openWindow(id: "terminal")
+                            store.showTerminal(open: openWindow)
                         }
                     }
                 }
@@ -302,7 +321,7 @@ struct PopoverView: View {
             .font(.system(size: 12))
             .frame(maxWidth: .infinity, alignment: .leading)
             Button("Reiniciar") {
-                Task { if await store.confirmRestart() { openWindow(id: "terminal") } }
+                Task { if await store.confirmRestart() { store.showTerminal(open: openWindow) } }
             }
             .buttonStyle(SmallButtonStyle(color: .ok, filled: true))
             Button("Cancelar") { store.cancelRestart() }.buttonStyle(SmallButtonStyle())
@@ -338,15 +357,17 @@ struct PopoverView: View {
 
     private func footer(hiddenCount: Int?) -> some View {
         HStack(spacing: 8) {
-            Toggle(isOn: $showSystem) {
-                HStack(spacing: 8) {
-                    Text("Mostrar sistema")
-                    if let hiddenCount { Text(String(hiddenCount)).foregroundStyle(.secondary) }
+            if tab != .terminal && !showSettings {
+                Toggle(isOn: $showSystem) {
+                    HStack(spacing: 8) {
+                        Text("Mostrar sistema")
+                        if let hiddenCount { Text(String(hiddenCount)).foregroundStyle(.secondary) }
+                    }
                 }
+                .toggleStyle(.checkbox)
             }
-            .toggleStyle(.checkbox)
             Spacer()
-            Button("Terminal") { openWindow(id: "terminal") }
+            Button("Ajustes") { showSettings.toggle() }
                 .buttonStyle(SmallButtonStyle())
             Button("Sair") {
                 if store.terminal.running.isEmpty { NSApplication.shared.terminate(nil) } else { confirmingQuit = true }
@@ -526,7 +547,7 @@ private struct RowMenu: View {
         if let folder = process.projectPath ?? process.cwd {
             Button("Terminal na pasta") {
                 store.openTerminal(title: process.project ?? process.group, folder: folder)
-                openWindow(id: "terminal")
+                store.showTerminal(open: openWindow)
             }
         }
         if process.cwd != nil {
@@ -629,6 +650,19 @@ extension DevProcess {
     fileprivate var memory: String { Format.memory(memoryBytes) }
 }
 
+extension Store {
+    /// Brings up the Terminal where the setting says: its tab in the popover, or the window.
+    func showTerminal(open: OpenWindowAction) {
+        if TerminalSessions.Host.preferred == .window {
+            terminal.host = .window
+            open(id: "terminal")
+        } else {
+            terminal.host = .popover
+            tab = .terminal
+        }
+    }
+}
+
 /// "1 grupo", "7 grupos".
 private func counted(_ count: Int, _ singular: String, _ plural: String) -> String {
     "\(count) \(count == 1 ? singular : plural)"
@@ -656,7 +690,17 @@ private func counted(_ count: Int, _ singular: String, _ plural: String) -> Stri
             many.append(node)
             cpu[node.key] = Double(40 - i)
         }
-        return PopoverView(store: .preview([], nodes: many, cpu: cpu), startOnApps: true)
+        return PopoverView(store: .preview([], nodes: many, cpu: cpu), startOn: .apps)
+    }
+
+    #Preview("Terminal: sem sessão") {
+        PopoverView(store: .preview([]), startOn: .terminal)
+    }
+
+    #Preview("Terminal: aberto na janela") {
+        let store = Store.preview([])
+        store.terminal.host = .window
+        return PopoverView(store: store, startOn: .terminal)
     }
 
     #Preview("Suspenso") {

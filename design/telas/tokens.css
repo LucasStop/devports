@@ -29,6 +29,8 @@ body { margin: 0; background: #c9cbd1; color: #1d1d1f; font: 14px/1.4 -apple-sys
   width: 440px; max-width: 100%; border-radius: 12px; background: var(--bg); color: var(--fg); overflow: hidden;
   box-shadow: 0 0 0 1px var(--sep), 0 12px 32px rgba(0, 0, 0, 0.28); font-size: 13px; position: relative;
 }
+.toprow { display: flex; align-items: center; gap: 6px; padding: 12px 8px 8px 12px; }
+.toprow .seg { flex: 1; margin: 0; }
 .hdr { display: flex; align-items: center; gap: 8px; padding: 12px 10px 8px 14px; }
 .hdr b { font-weight: 600; }
 .hdr .sp { flex: 1; }

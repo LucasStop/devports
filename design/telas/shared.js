@@ -36,7 +36,8 @@ const P = {
   worker: { t: 'queue-worker', pid: 4104, up: '5h', mem: '96 MB' },
 };
 const seg = (on) => `<div class="seg">${['Portas', 'Apps', 'Terminal'].map((t) => `<span${t === on ? ' class="on"' : ''}>${t}</span>`).join('')}</div>`;
-const header = (on = 'Portas') => `<div class="hdr">${I.glyph}<b>DevPorts</b><span class="sp"></span><div class="ibtn">${I.refresh}</div></div>${seg(on)}`;
+// Top row, always fixed at the top of the popover: tabs, then refresh on the right; search goes right under it.
+const header = (on = 'Portas') => `<div class="toprow">${seg(on)}<div class="ibtn">${I.refresh}</div></div>`;
 const search = (q = '') => `<div class="search">${I.search}${q ? `<span class="q">${q}</span>` : 'Buscar porta, processo ou projeto'}</div>`;
 const sec = (t, d) => `<div class="sec"><b>${t}</b><span>${d}</span></div>`;
 const footer = (n = 1) => `<div class="foot"><span class="chk"></span><span>Mostrar sistema</span><span class="n">${n}</span><span class="sp"></span><span>Ajustes</span><span>Sair</span></div>`;

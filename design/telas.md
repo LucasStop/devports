@@ -24,52 +24,52 @@ O repo é anterior à regra "protótipo antes de tela". As telas já no app entr
 | P12 | Faixa de reinício | implementada |
 | P13 | Faixa de sair | implementada |
 | P14 | Menu de contexto da linha | implementada |
-| P15 | Lista com botão de pausa | aprovada |
-| P16 | Linha suspensa | aprovada |
-| P17 | Dica do botão de pausa | aprovada |
-| P18 | Grupo com processo suspenso | aprovada |
+| P15 | Lista com botão de pausa | implementada |
+| P16 | Linha suspensa | implementada |
+| P17 | Dica do botão de pausa | implementada |
+| P18 | Grupo com processo suspenso | implementada |
 
-Nota: o cabeçalho de P01 a P18 já mostra o seletor `Portas | Apps | Terminal` e o rodapé perdeu o botão "Terminal" (aprovado junto com as abas Apps e Terminal).
+Nota: a linha do topo de todas as telas do popover (sem ícone e título) tem o seletor `Portas | Apps | Terminal` e o botão de atualizar à direita, sempre fixa no alto; a busca fica logo abaixo. O rodapé perdeu o botão "Terminal" e ganhou "Ajustes".
 
 ## Aba Apps · [`apps.html`](telas/apps.html)
 
 | Id | Tela / estado | Status |
 |---|---|---|
-| H01 | Seletor de abas no cabeçalho | aprovada |
-| A01 | Lista por CPU | aprovada |
-| A02 | App expandido (helpers) | aprovada |
-| A03 | App suspenso | aprovada |
-| A04 | Confirmação de pausa de grupo | aprovada |
-| A05 | Processo protegido (cadeado + dica) | aprovada |
-| A06 | Busca sem resultado | aprovada |
-| A07 | Menu de ordenação | aprovada |
-| A08 | Mostrar sistema ligado | aprovada |
-| A09 | Faixa de erro (outro usuário) | aprovada |
-| A10 | Primeira leitura (CPU "—") | aprovada |
+| H01 | Seletor de abas no cabeçalho | implementada |
+| A01 | Lista por CPU | implementada |
+| A02 | App expandido (helpers) | implementada |
+| A03 | App suspenso | implementada |
+| A04 | Confirmação de pausa de grupo | implementada |
+| A05 | Processo protegido (cadeado + dica) | implementada |
+| A06 | Busca sem resultado | implementada |
+| A07 | Menu de ordenação | implementada |
+| A08 | Mostrar sistema ligado | implementada |
+| A09 | Faixa de erro (outro usuário) | implementada |
+| A10 | Primeira leitura (CPU "—") | implementada |
 
 ## Terminal no popover · [`terminal-popover.html`](telas/terminal-popover.html)
 
 | Id | Tela / estado | Status |
 |---|---|---|
-| TP01 | Sem sessão | aprovada |
-| TP02 | Sessão rodando | aprovada |
-| TP03 | Parando | aprovada |
-| TP04 | Parando: não respondeu | aprovada |
-| TP05 | Terminou | aprovada |
-| TP06 | Shell ocioso | aprovada |
-| TP07 | Shell encerrado com erro | aprovada |
-| TP08 | Ações (log) | aprovada |
-| TP09 | Sessões abertas na janela | aprovada |
-| S01 | Configuração: padrão Popover | aprovada |
-| S02 | Configuração: padrão Janela | aprovada |
+| TP01 | Sem sessão | implementada |
+| TP02 | Sessão rodando | implementada |
+| TP03 | Parando | implementada |
+| TP04 | Parando: não respondeu | implementada |
+| TP05 | Terminou | implementada |
+| TP06 | Shell ocioso | implementada |
+| TP07 | Shell encerrado com erro | implementada |
+| TP08 | Ações (log) | implementada |
+| TP09 | Sessões abertas na janela | implementada |
+| S01 | Configuração: padrão Popover | implementada |
+| S02 | Configuração: padrão Janela | implementada |
 
 ## Ajustes · [`ajustes.html`](telas/ajustes.html)
 
 | Id | Tela / estado | Status |
 |---|---|---|
-| AJ01 | Mesmo tamanho em todas as abas | aprovada |
-| AJ02 | Um tamanho por aba | aprovada |
-| AJ03 | Terminal: padrão Janela | aprovada |
+| AJ01 | Mesmo tamanho em todas as abas | implementada |
+| AJ02 | Um tamanho por aba | implementada |
+| AJ03 | Terminal: padrão Janela | implementada |
 
 ## Janela Terminal · [`terminal.html`](telas/terminal.html)
 

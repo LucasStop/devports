@@ -15,6 +15,8 @@ final class Store {
     }
 
     private(set) var processes: [DevProcess] = []
+    /// The popover tab; here so that "Rodar script" and "Reiniciar" can bring up the Terminal tab.
+    var tab = PopoverTab.ports
     enum Stopping {
         case waiting
         /// Still alive 5 s after the signal: the row offers "Forçar".

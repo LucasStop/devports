@@ -48,6 +48,19 @@ final class TerminalSessions {
         }
     }
 
+    /// Where the terminal views are shown. A view has one parent, so only this host mounts them and the other one
+    /// shows a notice.
+    enum Host: String, CaseIterable {
+        case popover
+        case window
+
+        /// The "Abrir Terminal em" setting; the popover unless changed.
+        static var preferred: Host {
+            UserDefaults.standard.string(forKey: "terminalHost").flatMap(Host.init(rawValue:)) ?? .popover
+        }
+    }
+
+    var host = Host.popover
     private(set) var sessions: [Session] = []
     /// nil is the Ações tab.
     var selected: Session.ID?

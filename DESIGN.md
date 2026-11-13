@@ -55,13 +55,14 @@ Aprovado em 2026-09-23 no canvas de design (privado do autor): ícone A, glifo 4
 
 ## Layout & espaçamento
 - Grid base: 2 pt. Popover com 440 pt de largura e até 660 pt de altura; padding lateral 14.
-- Alturas: linha de porta 40, grupo 32, processo filho 30, rodapé 44, cabeçalho de seção 26.
+- Alturas: linha do topo 48, linha de porta 40, grupo 32, processo filho 30, rodapé 44, cabeçalho de seção 26.
 - Raio: popover 12, campo 7, botão 6, selo 4. Sombra: nenhuma própria (a do sistema).
 - Densidade: compacta.
 
 ## Componentes (padrões)
 - **Linha de porta:** LED 7 pt · porta em SF Mono (58 pt) · título, com selo `REDE` quando exposta · metadados (`projeto · exe · uptime · RAM`) · botões ↗, ⏸/▶ (só linha dev) e ✕ de 26 pt. Suspenso: LED cinza, selo `SUSPENSO` e texto secundário; o ⏸ avisa que a porta continua ocupada.
-- **Aba Apps:** seletor `Portas | Apps` abaixo do título. Linha: chevron · inicial do app · nome (selos `SISTEMA` e `SUSPENSO`) e `N processos` · CPU % (`—` na primeira leitura) · memória · ⏸/▶ de 26 pt. Pausar um app com helpers pede confirmação com a contagem. Protegidos e processos de outro usuário mostram cadeado no lugar do botão. Ordenar por CPU (padrão) ou Memória no cabeçalho da coluna.
+- **Linha do topo:** sempre fixa no alto do popover, sem ícone nem título "DevPorts": seletor `Portas | Apps | Terminal` e, à direita, o botão de atualizar. O campo de busca fica logo abaixo (some na aba Terminal). A lista rola por baixo; essa linha nunca sai.
+- **Aba Apps:** Linha: chevron · inicial do app · nome (selos `SISTEMA` e `SUSPENSO`) e `N processos` · CPU % (`—` na primeira leitura) · memória · ⏸/▶ de 26 pt. Pausar um app com helpers pede confirmação com a contagem. Protegidos e processos de outro usuário mostram cadeado no lugar do botão. Ordenar por CPU (padrão) ou Memória no cabeçalho da coluna.
 - **Grupo de processos:** chevron · nome (projeto, `~/pasta` ou "Sistema") · `N processos · RAM`. Aberto, mostra os processos filhos e "Encerrar todos".
 - **Botões:** pequeno (24 pt) com borda sutil; destrutivo em vermelho; primário preenchido com o destaque. Botões só de ícone com 26 pt e `accessibilityLabel`.
 - **Confirmação:** faixa inline tingida (vermelha para destruir, verde para reiniciar) com botão primário e Cancelar. Nunca modal, porque o `MenuBarExtra` fecha quando um alert abre.
@@ -74,7 +75,10 @@ Aprovado em 2026-09-23 no canvas de design (privado do autor): ícone A, glifo 4
 - **Terminal:**
   - abas com LED de status (verde rodando, cinza parado, vermelho saiu com erro);
   - barra de status com pid, porta, selo e uptime, mais Reiniciar e Parar;
-  - aba fixa "Ações" com o log.
+  - aba fixa "Ações" com o log;
+  - terceira aba do popover por padrão (terminal de 300 pt com altura automática, barra de status em duas linhas); botão "Abrir em janela" e menu ⋯ ("Abrir Terminal em" Popover/Janela, "Nova sessão") na barra de abas;
+  - as sessões são as mesmas no popover e na janela, mas só um lugar mostra o terminal; o outro mostra o aviso "Sessões abertas na janela/no popover" com botão para trazer de volta, sem encerrar nada.
+- **Ajustes:** botão "Ajustes" no rodapé abre o painel dentro do popover. "Abrir Terminal em" (Popover, padrão, ou Janela); "Mesmo tamanho em todas as abas" ou largura (360 a 720 pt, padrão 440) e altura (Automática, com teto de 660 pt, ou Fixa de 300 a 660 pt) por aba; "Restaurar padrão". Com o Terminal em janela, o tamanho da aba Terminal não vale. Guardado em `@AppStorage("popoverSizes")` (JSON) e `@AppStorage("terminalHost")`.
 - **Ícones:** SF Symbols no app (`arrow.up.right`, `xmark`, `arrow.clockwise`, `terminal`, `magnifyingglass`, `chevron.right`, `chevron.down`, `list.bullet`, `plus`).
 
 ## Tom & voz (microcopy)
