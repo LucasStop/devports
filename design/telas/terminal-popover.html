@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevPorts · Terminal no popover</title>
+<link rel="stylesheet" href="tokens.css">
+</head>
+<body>
+<div class="page">
+  <h1>Terminal no popover</h1>
+  <p>O Terminal vira a terceira aba do popover (padrão) e continua podendo abrir na janela separada (<code>terminal.html</code>). As sessões são as mesmas; só o lugar onde a tela aparece muda. Todos os estados <span class="tag">APROVADA</span>. Inventário em <code>design/telas.md</code>.</p>
+  <div id="out"></div>
+</div>
+<script src="shared.js"></script>
+<script>
+const WIN = '<svg viewBox="0 0 12 12"><rect x="1" y="2" width="10" height="8" rx="1.5"/><path d="M1 4.5h10"/></svg>';
+const DOTS = '<svg viewBox="0 0 12 12" style="stroke-width:2.4"><path d="M2.5 6h.01M6 6h.01M9.5 6h.01"/></svg>';
+const LIST = '<svg viewBox="0 0 12 12"><path d="M2 3h8M2 6h8M2 9h8"/></svg>';
+const XS = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg>';
+const tab = (t, led, sel) => `<div class="tab${sel ? ' sel' : ''}"><span class="led ${led}"></span><span>${t}</span><span class="x">${XS}</span></div>`;
+// sel: 'log' | 'ses'; ses: {t, led}
+const tbar = (sel, ses) => `<div class="tbar"><div class="tab${sel === 'log' ? ' sel' : ''}">${LIST}<span>Ações</span></div>${ses ? tab(ses.t, ses.led, sel === 'ses') : ''}<span class="sp"></span><div class="ibtn" title="Abrir em janela">${WIN}</div><div class="ibtn">${DOTS}</div></div>`;
+const shell = (l) => `<div class="pane">${l}</div>`;
+const run = shell('<span class="g">~/GitHub/site</span> % yarn run dev\n<span class="d">▲ Next.js 15.1</span>\n  - Local:   http://localhost:3001\n\n <span class="g">✓</span> Ready in 1.4s\n <span class="g">✓</span> Compiled /  in 612ms <span class="cur"></span>');
+const bar = (led, p, rest, btns = '') => `<div class="bar2"><div class="r1"><span class="led ${led}"></span><span class="p">${p}</span><span class="rest">${rest}</span></div>${btns ? `<div class="r2">${btns}</div>` : ''}</div>`;
+const bars = {
+  run: bar('', 'rodando', '· yarn run dev · pid 4101 · :3001 · há 2h', '<button class="sbtn">Abrir :3001</button><button class="sbtn">Reiniciar</button><button class="sbtn danger">Parar</button>'),
+  wait: bar('warn', 'parando', '· yarn run dev · pid 4101 · aguardando 3 s'),
+  late: bar('warn', 'parando', '· yarn run dev · pid 4101 · não respondeu em 5 s', '<button class="sbtn danger strong">Forçar</button>'),
+  done: bar('idle', 'terminou', '· yarn run build · durou 42min', '<button class="sbtn">Rodar de novo</button>'),
+  idle: bar('idle', 'zsh', '· ~/Downloads/GitHub/site', '<button class="sbtn">Mostrar no Finder</button>'),
+  dead: bar('danger', 'shell encerrado com código 1', ''),
+};
+const log = (rows) => `<div class="log">${rows.map(([t, c, r]) => `<div><span>${t}</span><span>${c}</span><span>${r}</span></div>`).join('')}</div>`;
+const holder = (title, sub, btn) => `<div class="holder"><b>${title}</b><span>${sub}</span>${btn}</div>`;
+const foot = '<div class="foot"><span class="sp"></span><span>Ajustes</span><span>Sair</span></div>';
+const frame = (sel, ses, body, b = '', over = '') => `<div class="frame">${header('Terminal')}${tbar(sel, ses)}${body}${b}${foot}${over}</div>`;
+const menu = (host) => `<div class="menu t"><div class="sub">Abrir Terminal em</div><div${host === 'popover' ? ' class="sel"' : ''}><span class="ck">${host === 'popover' ? '✓' : ''}</span>Popover</div><div${host === 'window' ? ' class="sel"' : ''}><span class="ck">${host === 'window' ? '✓' : ''}</span>Janela</div><hr><div>Abrir em janela agora</div></div>`;
+const ses = { t: 'site · dev', led: '' };
+
+const S = [
+  ['TP01', 'Sem sessão', 'Vazio, com botão para criar uma sessão', () => frame('log', null, holder('Nenhuma sessão', 'Rode um script de um projeto ou abra um shell.', '<button class="sbtn filled ok">Nova sessão</button>'))],
+  ['TP02', 'Sessão rodando', 'Abas no alto, terminal 300 pt, barra de status em duas linhas (a 440 pt não cabe em uma)', () => frame('ses', ses, run, bars.run)],
+  ['TP03', 'Parando', 'Contagem regressiva de 5 s', () => frame('ses', ses, run, bars.wait)],
+  ['TP04', 'Parando: não respondeu', '"Forçar" (KILL no grupo)', () => frame('ses', ses, run, bars.late)],
+  ['TP05', 'Terminou', 'LED cinza, duração e "Rodar de novo"', () => frame('ses', { t: 'site · build', led: 'idle' }, shell('<span class="g">~/GitHub/site</span> % yarn run build\n <span class="g">✓</span> Compiled successfully\n<span class="g">~/GitHub/site</span> % <span class="cur"></span>'), bars.done)],
+  ['TP06', 'Shell ocioso', 'Prompt sem job: pasta e "Mostrar no Finder"', () => frame('ses', { t: 'site', led: '' }, shell('<span class="g">~/GitHub/site</span> % <span class="cur"></span>'), bars.idle)],
+  ['TP07', 'Shell encerrado com erro', 'LED vermelho na aba e na barra', () => frame('ses', { t: 'api', led: 'danger' }, shell('<span class="g">~/GitHub/api</span> % exit 1\n<span class="d">Process completed.</span>'), bars.dead)],
+  ['TP08', 'Ações (log)', 'Mesmo log da janela, em coluna estreita', () => frame('log', ses, log([['18:04:12', 'kill -TERM 4101  # next dev', 'enviado'], ['18:03:40', 'open http://localhost:3000', 'ok'], ['18:02:05', 'yarn run dev  # site', 'aba site · dev'], ['18:01:31', 'pbcopy  # comando de vite', 'ok']]))],
+  ['TP09', 'Sessões abertas na janela', 'Uma view do terminal só tem um pai: com a janela aberta o popover mostra este aviso', () => frame('ses', ses, holder('Sessões abertas na janela', 'O terminal está na janela separada. Trazer de volta não encerra nada.', '<button class="sbtn">Trazer para o popover</button>'))],
+  ['S01', 'Configuração: padrão Popover', 'Menu ⋯ da barra de abas; "Popover" é o padrão', () => frame('ses', ses, run, bars.run, menu('popover'))],
+  ['S02', 'Configuração: padrão Janela', '"Rodar script" e "Reiniciar" passam a abrir a janela; a aba mostra o aviso', () => frame('ses', ses, holder('Sessões abertas na janela', 'O terminal está na janela separada. Trazer de volta não encerra nada.', '<button class="sbtn">Trazer para o popover</button>'), '', menu('window'))],
+];
+const out = document.getElementById('out');
+for (const [id, name, desc, render] of S) {
+  out.insertAdjacentHTML('beforeend', `<section class="state" id="${id}"><h2><span>${id} · ${name}</span><span class="tag">APROVADA</span><small>${desc}</small></h2><div class="pair"><div class="light">${render()}</div><div class="dark">${render()}</div></div></section>`);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevPorts · Terminal</title>
+<link rel="stylesheet" href="tokens.css">
+</head>
+<body>
+<div class="page">
+  <h1>Janela Terminal</h1>
+  <p>Aba fixa "Ações" (log) e uma aba por sessão de shell, com a barra de status embaixo. Todos os estados <span class="tag">IMPLEMENTADA</span>; nenhuma tela nova nesta janela. Inventário em <code>design/telas.md</code>.</p>
+  <div id="out"></div>
+</div>
+<script>
+const X = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg>';
+const LIST = '<svg viewBox="0 0 12 12"><path d="M2 3h8M2 6h8M2 9h8"/></svg>';
+const tab = (t, led, sel) => `<div class="tab${sel ? ' sel' : ''}"><span class="led ${led}"></span><span>${t}</span><span class="x">${X}</span></div>`;
+const tabs = (sel, session) => `<div class="tabs"><div class="tab${sel === 'log' ? ' sel' : ''}">${LIST}<span>Ações</span></div>${session ? tab(session.t, session.led, sel === 'ses') : ''}</div>`;
+const win = (sel, session, body, bar) => `<div class="win"><div class="titlebar"><span class="tl"><i></i><i></i><i></i></span>Terminal</div>${tabs(sel, session)}${body}${bar || ''}</div>`;
+const shell = (lines) => `<div class="pane">${lines}</div>`;
+const run = shell('<span class="g">~/GitHub/site</span> % yarn run dev\n<span class="d">▲ Next.js 15.1</span>\n  - Local:   http://localhost:3001\n\n <span class="g">✓</span> Ready in 1.4s\n <span class="g">✓</span> Compiled /  in 612ms <span class="cur"></span>');
+const bars = {
+  run: `<div class="bar"><span class="led"></span><span class="p">rodando</span><span>· yarn run dev · pid 4101</span><span class="mono">:3001</span><span>· há 2h</span><span class="sp"></span><button class="sbtn">Abrir :3001</button><button class="sbtn">Reiniciar</button><button class="sbtn danger">Parar</button></div>`,
+  runNet: `<div class="bar"><span class="led"></span><span class="p">rodando</span><span>· python3 -m http.server 8000 · pid 4103</span><span class="mono">:8000</span><span class="badge net">REDE</span><span>· há 18min</span><span class="sp"></span><button class="sbtn">Abrir :8000</button><button class="sbtn">Reiniciar</button><button class="sbtn danger">Parar</button></div>`,
+  wait: `<div class="bar"><span class="led warn"></span><span class="p">parando</span><span>· yarn run dev · pid 4101</span><span>· aguardando 3 s</span><span class="sp"></span></div>`,
+  late: `<div class="bar"><span class="led warn"></span><span class="p">parando</span><span>· yarn run dev · pid 4101</span><span>· não respondeu em 5 s</span><span class="sp"></span><button class="sbtn danger strong">Forçar</button></div>`,
+  done: `<div class="bar"><span class="led idle"></span><span class="p">terminou</span><span>· yarn run build · durou 42min</span><span class="sp"></span><button class="sbtn">Rodar de novo</button></div>`,
+  idle: `<div class="bar"><span class="led idle"></span><span class="p">zsh</span><span>· ~/Downloads/GitHub/site</span><span class="sp"></span><button class="sbtn">Mostrar no Finder</button></div>`,
+  dead: `<div class="bar"><span class="led danger"></span><span class="p">shell encerrado com código 1</span><span class="sp"></span></div>`,
+};
+const log = (rows) => `<div class="log">${rows.map(([t, c, r]) => `<div><span>${t}</span><span>${c}</span><span>${r}</span></div>`).join('')}</div>`;
+const S = [
+  ['T01', 'Ações com log', 'Mais recente no topo; só comandos, nunca o argv completo', () => win('log', { t: 'site · dev', led: '' }, log([['18:04:12', 'kill -TERM 4101  # next dev (site)', 'enviado'], ['18:03:40', 'open http://localhost:3000', 'ok'], ['18:02:05', 'cd ~/GitHub/site && yarn run dev', 'aba site · dev'], ['18:01:31', 'pbcopy  # comando de vite (pid 4102)', 'ok']]))],
+  ['T02', 'Ações vazio', 'Antes de qualquer ação', () => win('log', null, `<div class="log empty"><div style="display:grid;place-content:center;text-align:center;gap:6px;border:0;font:13px -apple-system,sans-serif"><b style="font-size:15px;color:var(--fg)">Nenhuma ação ainda</b><span>Encerrar, abrir e rodar scripts pelo DevPorts aparece aqui.</span></div></div>`)],
+  ['T03', 'Sessão rodando', 'LED verde, comando, pid, porta e uptime; Abrir, Reiniciar e Parar', () => win('ses', { t: 'site · dev', led: '' }, run, bars.run)],
+  ['T04', 'Sessão rodando em porta exposta', 'Selo REDE ao lado da porta', () => win('ses', { t: 'docs', led: '' }, run, bars.runNet)],
+  ['T05', 'Parando', 'Contagem regressiva de 5 s', () => win('ses', { t: 'site · dev', led: '' }, run, bars.wait)],
+  ['T06', 'Parando: não respondeu', 'Aparece "Forçar" (KILL no grupo)', () => win('ses', { t: 'site · dev', led: '' }, run, bars.late)],
+  ['T07', 'Terminou', 'LED cinza, duração e "Rodar de novo"', () => win('ses', { t: 'site · build', led: 'idle' }, shell('<span class="g">~/GitHub/site</span> % yarn run build\n <span class="g">✓</span> Compiled successfully\n<span class="g">~/GitHub/site</span> % <span class="cur"></span>'), bars.done)],
+  ['T08', 'Shell ocioso', 'Prompt sem job: pasta e "Mostrar no Finder"', () => win('ses', { t: 'site', led: '' }, shell('<span class="g">~/GitHub/site</span> % <span class="cur"></span>'), bars.idle)],
+  ['T09', 'Shell encerrado com erro', 'LED vermelho na aba e na barra', () => win('ses', { t: 'api', led: 'danger' }, shell('<span class="g">~/GitHub/api</span> % exit 1\n<span class="d">Process completed.</span>'), bars.dead)],
+];
+const out = document.getElementById('out');
+for (const [id, name, desc, render] of S) {
+  out.insertAdjacentHTML('beforeend', `<section class="state" id="${id}"><h2><span>${id} · ${name}</span><span class="tag">IMPLEMENTADA</span><small>${desc}</small></h2><div class="pair"><div class="light">${render()}</div><div class="dark">${render()}</div></div></section>`);
+}
+</script>
+</body>
+</html>
