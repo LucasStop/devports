@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevPorts · Ajustes</title>
+<link rel="stylesheet" href="tokens.css">
+</head>
+<body>
+<div class="page">
+  <h1>Ajustes</h1>
+  <p>Painel aberto pelo "Ajustes" do rodapé, dentro do popover. Tamanho do popover: o mesmo para todas as abas ou um por aba (largura e altura). Todos os estados <span class="tag">APROVADA</span>. Inventário em <code>design/telas.md</code>.</p>
+  <div id="out"></div>
+</div>
+<script src="shared.js"></script>
+<script>
+const sl = (pct) => `<div class="sl"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></div>`;
+const pct = (v, a, b) => Math.round(((v - a) / (b - a)) * 100);
+const W = (v) => [sl(pct(v, 360, 720)), `${v} pt`];
+const H = (v) => [sl(pct(v, 300, 660)), `${v} pt`];
+const row = (label, ctl, val, o = {}) => `<div class="set${o.off ? ' off' : ''}"><div class="l">${label}${o.sub ? `<small>${o.sub}</small>` : ''}</div>${ctl}<span class="v">${val}</span></div>`;
+const wr = (v) => row('Largura', ...W(v));
+const hr = (auto, v) => row('Altura', auto ? '<div class="seg" style="width:120px"><span class="on">Automática</span><span>Fixa</span></div>' : '<div class="seg" style="width:120px"><span>Automática</span><span class="on">Fixa</span></div>', '') .replace('<span class="v"></span>', '') + (auto ? '' : row('', ...H(v)));
+const termRow = (host) => `<h3>Terminal</h3><div class="set"><div class="l">Abrir em<small>Rodar script e Reiniciar usam esta opção</small></div><div class="seg"><span${host === 'popover' ? ' class="on"' : ''}>Popover</span><span${host === 'window' ? ' class="on"' : ''}>Janela</span></div></div>`;
+const frame = (body) => `<div class="frame"><div class="hback"><svg class="chev" viewBox="0 0 10 10" style="transform:rotate(180deg)"><path d="M3.5 1.5L7 5 3.5 8.5"/></svg>Ajustes<span>· voltar</span></div><div class="setp">${body}<h3>&nbsp;</h3><div class="set"><span class="l" style="color:var(--fg2);font-size:11px">Altura automática cresce com o conteúdo, até 660 pt.</span><button class="sbtn">Restaurar padrão</button></div></div></div>`;
+const same = (on) => `<h3>Tamanho do popover</h3><div class="set"><div class="l">Mesmo tamanho em todas as abas</div><div class="sw${on ? ' on' : ''}"></div></div>`;
+const per = (name, w, a, h) => `<div class="tabset"><b>${name}</b>${wr(w)}${hr(a, h)}</div>`;
+
+const S = [
+  ['AJ01', 'Mesmo tamanho em todas as abas', 'Um único par largura/altura vale para Portas, Apps e Terminal', () => frame(termRow('popover') + same(true) + wr(440) + hr(true))],
+  ['AJ02', 'Um tamanho por aba', 'Interruptor desligado: cada aba tem largura e altura próprias', () => frame(termRow('popover') + same(false) + per('Portas', 440, true) + per('Apps', 480, false, 520) + per('Terminal', 560, false, 420))],
+  ['AJ03', 'Terminal: padrão Janela', 'A aba Terminal do popover vira só o aviso (TP09); o tamanho da aba some do ajuste', () => frame(termRow('window') + same(false) + per('Portas', 440, true) + per('Apps', 480, false, 520) + `<div class="tabset" style="opacity:.45"><b>Terminal</b><div class="set"><span class="l" style="font-size:11.5px">Sem efeito: o Terminal abre em janela.</span></div></div>`)],
+];
+const out = document.getElementById('out');
+for (const [id, name, desc, render] of S) {
+  out.insertAdjacentHTML('beforeend', `<section class="state" id="${id}"><h2><span>${id} · ${name}</span><span class="tag">APROVADA</span><small>${desc}</small></h2><div class="pair"><div class="light">${render()}</div><div class="dark">${render()}</div></div></section>`);
+}
+</script>
+</body>
+</html>

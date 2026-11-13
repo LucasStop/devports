@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevPorts · Apps</title>
+<link rel="stylesheet" href="tokens.css">
+</head>
+<body>
+<div class="page">
+  <h1>Aba Apps</h1>
+  <p>Monitor de atividade no popover: todos os processos agrupados por aplicativo, com CPU e memória, para pausar e retomar o app inteiro (ele e os helpers). Todos os estados <span class="tag">APROVADA</span>. Inventário em <code>design/telas.md</code>.</p>
+  <div id="out"></div>
+</div>
+<script src="shared.js"></script>
+<script>
+const LOCK = '<svg viewBox="0 0 12 12"><rect x="2.5" y="5.2" width="7" height="5" rx="1.2"/><path d="M4 5.2V4a2 2 0 0 1 4 0v1.2"/></svg>';
+const A = {
+  chrome: { t: 'Google Chrome', n: 18, cpu: '12,4 %', mem: '2,1 GB', k: 'G' },
+  xcode: { t: 'Xcode', n: 6, cpu: '8,1 %', mem: '3,4 GB', k: 'X' },
+  spotify: { t: 'Spotify', n: 4, cpu: '2,3 %', mem: '540 MB', k: 'S' },
+  slack: { t: 'Slack', n: 5, cpu: '1,2 %', mem: '812 MB', k: 'S' },
+  edit: { t: 'TextEdit', n: 1, cpu: '0,0 %', mem: '64 MB', k: 'T' },
+  finder: { t: 'Finder', n: 1, cpu: '0,3 %', mem: '210 MB', k: 'F', prot: true },
+  ws: { t: 'WindowServer', n: 1, cpu: '4,0 %', mem: '480 MB', k: 'W', prot: true, sys: true },
+  mds: { t: 'mds_stores', n: 1, cpu: '1,1 %', mem: '310 MB', k: 'm', sys: true, other: true },
+  audio: { t: 'coreaudiod', n: 1, cpu: '0,4 %', mem: '22 MB', k: 'c', sys: true, other: true },
+};
+const kids = [['Google Chrome Helper (Renderer)', 4410, '3,2 %', '412 MB'], ['Google Chrome Helper (GPU)', 4408, '5,1 %', '388 MB'], ['Google Chrome Helper', 4409, '0,2 %', '96 MB']];
+// o: open, suspended, confirm, hover, firstRead
+function appRow(a, o = {}) {
+  const sus = o.suspended;
+  const cpu = o.firstRead ? '—' : sus ? '0,0 %' : a.cpu;
+  const badge = (a.sys ? '<span class="badge sys">SISTEMA</span>' : '') + (sus ? '<span class="badge sus">SUSPENSO</span>' : '');
+  const sub = a.n > 1 ? `${a.n} processos` : '1 processo';
+  const btn = o.confirm ? '<div class="ibtn"></div>' : a.prot || a.other ? `<div class="ibtn off">${LOCK}</div>` : `<div class="ibtn${o.hover ? ' hover' : ''}">${sus ? I.play : I.pause}</div>`;
+  return `<div class="arow${sus || a.prot || a.other ? ' dim' : ''}">${a.n > 1 ? (o.open ? I.chD : I.chR) : '<span style="width:10px"></span>'}<span class="aico">${a.k}</span><div class="nm"><div class="ttl"><span class="tt">${a.t}</span>${badge}</div><span class="meta">${sub}</span></div><span class="num cpu">${cpu}</span><span class="num mem">${a.mem}</span>${btn}</div>`;
+}
+const child = (c) => `<div class="arow child"><div class="nm"><div class="ttl"><span class="tt">${c[0]}</span></div></div><span class="meta">pid ${c[1]}</span><span class="num cpu">${c[2]}</span><span class="num mem">${c[3]}</span><div class="ibtn"></div></div>`;
+const colhdr = (by = 'cpu') => `<div class="chdr"><span class="nm">Nome</span><span class="num cpu${by === 'cpu' ? ' on' : ''}">CPU ${by === 'cpu' ? '▾' : ''}</span><span class="num mem${by === 'mem' ? ' on' : ''}">Memória ${by === 'mem' ? '▾' : ''}</span><span style="width:26px"></span></div>`;
+const bandPause = (t) => `<div class="band danger"><span class="t">${t}</span><button class="sbtn filled danger">Pausar</button><button class="sbtn">Cancelar</button></div>`;
+const apps = (rows, o = {}) => sec('Apps', o.d || '5 em uso') + colhdr(o.by) + rows;
+const base = [appRow(A.chrome), appRow(A.xcode), appRow(A.spotify), appRow(A.slack), appRow(A.edit)].join('');
+const A_ = (inner, o = {}) => popover(inner, { tab: 'Apps', n: 0, ...o });
+
+const S = [
+  ['A01', 'Lista por CPU', 'Todos os apps do usuário, maior CPU no topo; ⏸ pausa o app inteiro', () => A_(apps(base))],
+  ['A02', 'App expandido', 'Chevron abre os helpers; só o app tem ⏸ (pausa tudo junto)', () => A_(apps(appRow(A.chrome, { open: true }) + kids.map(child).join('') + [appRow(A.xcode), appRow(A.spotify), appRow(A.slack)].join('')))],
+  ['A03', 'App suspenso', 'Selo SUSPENSO, CPU 0 % e ▶ para retomar', () => A_(apps([appRow(A.chrome), appRow(A.xcode), appRow(A.spotify), appRow(A.slack, { suspended: true }), appRow(A.edit)].join('')))],
+  ['A04', 'Confirmação de pausa de grupo', 'App com mais de um processo pede confirmação com a contagem', () => A_(apps(appRow(A.chrome, { confirm: true }) + bandPause('Pausar Google Chrome e 17 processos auxiliares? Ele congela até você retomar.') + [appRow(A.xcode), appRow(A.spotify), appRow(A.slack), appRow(A.edit)].join('')), { over: '' })],
+  ['A05', 'Processo protegido', 'Cadeado no lugar do ⏸; dica explica por que não pausa', () => A_(apps([appRow(A.chrome), appRow(A.finder, { hover: true }), appRow(A.xcode), appRow(A.slack)].join('')), { over: '<div class="tip" style="top:326px">Finder é protegido: pausá-lo congela a área de trabalho e o sistema.</div>' })],
+  ['A06', 'Busca sem resultado', 'Nenhum app com o texto digitado', () => A_(`<div class="empty"><svg class="ico" viewBox="0 0 12 12"><circle cx="5" cy="5" r="3.3"/><path d="M7.6 7.6L10.5 10.5"/></svg><b>Nada encontrado</b><span>Nenhum app ou processo com “xyz”.</span></div>`, { q: 'xyz' })],
+  ['A07', 'Menu de ordenação', 'Clique no cabeçalho da coluna: CPU ou Memória', () => A_(apps(base), { over: '<div class="menu" style="left:auto;right:18px;top:178px;min-width:150px"><div class="sel"><span class="ck">✓</span>CPU</div><div><span class="ck"></span>Memória</div><div><span class="ck"></span>Nome</div></div>' })],
+  ['A08', 'Mostrar sistema ligado', 'Processos do sistema e de outros usuários aparecem sem botão; críticos com cadeado', () => A_(apps([appRow(A.chrome), appRow(A.ws), appRow(A.mds), appRow(A.audio), appRow(A.edit)].join(''), { d: '5 em uso · sistema' })).replace('<span class="chk"></span>', '<span class="chk" style="background:var(--ok);border-color:transparent"></span>')],
+  ['A09', 'Faixa de erro', 'Sem permissão para pausar processo de outro usuário', () => A_(apps(base), { band: `<div class="band danger err">${I.err}<span class="t">Sem permissão para pausar mds_stores (pid 330). Ele pertence a outro usuário.</span><span class="ibtn" style="width:18px;height:18px">${I.x}</span></div>` })],
+  ['A10', 'Primeira leitura', 'CPU precisa de duas leituras; mostra "—" por ~2 s', () => A_(apps([appRow(A.chrome, { firstRead: true }), appRow(A.xcode, { firstRead: true }), appRow(A.spotify, { firstRead: true })].join(''), { d: '3 em uso' }))],
+];
+const out = document.getElementById('out');
+for (const [id, name, desc, render] of S) {
+  out.insertAdjacentHTML('beforeend', `<section class="state" id="${id}"><h2><span>${id} · ${name}</span><span class="tag">APROVADA</span><small>${desc}</small></h2><div class="pair"><div class="light">${render()}</div><div class="dark">${render()}</div></div></section>`);
+}
+</script>
+</body>
+</html>

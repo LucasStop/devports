@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevPorts · Popover</title>
+<link rel="stylesheet" href="tokens.css">
+</head>
+<body>
+<div class="page">
+  <h1>Popover da barra de menus</h1>
+  <p>Todos os estados do popover, em claro e escuro, com os tokens de <code>DESIGN.md</code>. Estados <span class="tag">IMPLEMENTADA</span> existem no app; <span class="tag">APROVADA</span> aguardam implementação. Inventário em <code>design/telas.md</code>.</p>
+  <div id="out"></div>
+</div>
+<script src="shared.js"></script>
+<script>
+
+const S = [
+  ['P01', 'Lista', 'Portas dev, depois processos dev em grupos fechados', 'implementada', () => popover(list())],
+  ['P02', 'Grupo aberto', 'Chevron para baixo, "Encerrar todos" e os processos filhos', 'implementada', () => popover(list({ group: group(true, procRow(P.worker)) }))],
+  ['P03', 'Vazio', 'Sem porta dev em uso', 'implementada', () => popover(`<div class="empty"><img src="../glyph.svg" class="ico gl" width="22" height="22" alt=""><b>Nenhuma porta dev em uso</b><span>Servidores que você subir aparecem aqui.</span></div>`, { n: 0 })],
+  ['P04', 'Busca sem resultado', 'Nada encontrado para o texto digitado', 'implementada', () => popover(`<div class="empty"><svg class="ico" viewBox="0 0 12 12"><circle cx="5" cy="5" r="3.3"/><path d="M7.6 7.6L10.5 10.5"/></svg><b>Nada encontrado</b><span>Nenhuma porta, processo ou projeto com “xyz”.</span></div>`, { q: 'xyz' })],
+  ['P05', 'Busca: porta livre', 'Número de porta sem processo escutando', 'implementada', () => popover(`<div class="free"><div class="l"><span class="led"></span>Porta 4000 livre</div><div class="m">Nenhum processo escutando nela.</div></div>`, { q: ':4000' })],
+  ['P06', 'Busca: porta em uso por outro usuário', 'lsof não vê o processo; o bind falha', 'implementada', () => popover(`<div class="free"><div class="l"><span class="led warn"></span>Porta 80 em uso</div><div class="m">Por um processo de outro usuário, como o root.</div></div>`, { q: ':80' })],
+  ['P07', 'Linha encerrando', 'TERM enviado: LED cinza, "encerrando…" e spinner no lugar do ✕', 'implementada', () => popover(list({ ports: { next: { stop: 'wait' } } }))],
+  ['P08', 'Não respondeu em 5 s', 'Botão vira "Forçar" (KILL)', 'implementada', () => popover(list({ ports: { next: { stop: 'late' } } }))],
+  ['P09', 'Confirmação de linha de sistema', 'Linha de sistema pede confirmação inline', 'implementada', () => popover(sec('Portas', 4) + portRow(P.vite) + portRow(P.sys, { sys: true, confirm: true }) + '<div class="dv"></div>' + sec('Processos dev', '1 em 1 grupo') + group(false), { n: 1 })],
+  ['P10', 'Confirmação de grupo', '"Encerrar todos" abre faixa vermelha sob o grupo', 'implementada', () => popover(list({ group: group(true, procRow(P.worker), confirmBand('Encerrar o processo de painel?')) }))],
+  ['P11', 'Faixa de erro', 'No rodapé, dispensável', 'implementada', () => popover(list(), { band: `<div class="band danger err">${I.err}<span class="t">Sem permissão para encerrar rapportd (pid 612). Ele pertence a outro usuário.</span><span class="ibtn" style="width:18px;height:18px">${I.x}</span></div>` })],
+  ['P12', 'Faixa de reinício', 'Mostra o comando exato antes de reiniciar', 'implementada', () => popover(list(), { band: `<div class="band ok"><span class="t">Reiniciar com <code>yarn run dev</code> em site?</span><button class="sbtn filled ok">Reiniciar</button><button class="sbtn">Cancelar</button></div>` })],
+  ['P13', 'Faixa de sair', 'Sair encerra as sessões do Terminal', 'implementada', () => popover(list(), { band: `<div class="band quit"><div>2 sessões rodando no Terminal. Sair encerra as 2.</div><div class="acts"><button class="sbtn">Cancelar</button><button class="sbtn filled danger">Sair e encerrar</button></div></div>` })],
+  ['P14', 'Menu de contexto da linha', 'Botão direito numa linha de porta', 'implementada', () => popover(list({ ports: { next: {} } }), { over: `<div class="menu"><div class="sel">Abrir no navegador</div><hr><div>Terminal na pasta</div><div>Mostrar no Finder</div><div>Copiar comando</div><div>Reiniciar com log</div></div>` })],
+  ['P15', 'Lista com botão de pausa', 'Novo botão ⏸ antes do ✕ em toda linha dev; linha de sistema não ganha o botão', 'aprovada', () => popover(sec('Portas', 3) + portRow(P.vite, { pauseBtn: true }) + portRow(P.next, { pauseBtn: true, hoverPause: true }) + portRow(P.http, { pauseBtn: true }) + '<div class="dv"></div>' + sec('Processos dev', '1 em 1 grupo') + group(false))],
+  ['P16', 'Linha suspensa', 'LED cinza, selo SUSPENSO, texto secundário, botão ▶ para retomar', 'aprovada', () => popover(sec('Portas', 3) + portRow(P.vite, { pauseBtn: true }) + portRow(P.next, { pauseBtn: true, suspended: true }) + portRow(P.http, { pauseBtn: true }) + '<div class="dv"></div>' + sec('Processos dev', '1 em 1 grupo') + group(false))],
+  ['P17', 'Dica do botão de pausa', 'Tooltip avisa que a porta continua ocupada', 'aprovada', () => popover(sec('Portas', 3) + portRow(P.vite, { pauseBtn: true }) + portRow(P.next, { pauseBtn: true, hoverPause: true }) + portRow(P.http, { pauseBtn: true }) + '<div class="dv"></div>' + sec('Processos dev', '1 em 1 grupo') + group(false), { over: '<div class="tip">Suspender next dev, pid 4101. A porta continua ocupada e novas conexões ficam esperando.</div>' })],
+  ['P18', 'Grupo com processo suspenso', 'Processo sem porta: ⏸/▶ antes do ✕, selo SUSPENSO na linha', 'aprovada', () => popover(list({ group: group(true, procRow(P.worker, { pauseBtn: true, suspended: true })) }))],
+];
+const out = document.getElementById('out');
+for (const [id, name, desc, status, render] of S) {
+  const tag = status === 'aprovada' ? '<span class="tag">APROVADA</span>' : '<span class="tag">IMPLEMENTADA</span>';
+  out.insertAdjacentHTML('beforeend', `<section class="state" id="${id}"><h2><span>${id} · ${name}</span>${tag}<small>${desc}</small></h2><div class="pair"><div class="light">${render()}</div><div class="dark">${render()}</div></div></section>`);
+}
+</script>
+</body>
+</html>
