@@ -75,6 +75,31 @@ final class Store {
         stopping = stopping.filter { alive.contains($0.key) }
     }
 
+    /// SIGSTOP/SIGCONT one dev process; the next scan shows the new state (ps `T`).
+    func suspend(_ process: DevProcess) { toggle(process, stop: true) }
+
+    func resume(_ process: DevProcess) { toggle(process, stop: false) }
+
+    private func toggle(_ process: DevProcess, stop: Bool) {
+        let outcome = stop ? killer.suspend(process) : killer.resume(process)
+        let note = [process.label, process.project.map { "(\($0))" }].compactMap { $0 }.joined(separator: " ")
+        log.append(
+            LogEntry(
+                command: "kill -\(stop ? "STOP" : "CONT") \(process.pid)  # \(note)", result: Self.describe(outcome)))
+        switch outcome {
+        case .sent, .gone: break
+        case .notPermitted:
+            banner =
+                "Sem permissão para \(stop ? "suspender" : "retomar") \(process.label) (pid \(process.pid)). Ele pertence a outro usuário."
+        case .pidReused:
+            banner = "O pid \(process.pid) já é de outro processo. Nada foi enviado."
+        }
+        Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            await refresh()
+        }
+    }
+
     /// TERM the first time, KILL when a pid already got TERM ("Forçar"). Rescans every second for 6 s so rows leave
     /// as soon as their process exits, and flags the survivors at 5 s.
     func terminate(_ targets: [DevProcess]) {

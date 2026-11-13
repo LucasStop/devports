@@ -52,11 +52,11 @@ final class ProcessScannerTests: XCTestCase {
         XCTAssertFalse(ProcessScanner.isPortTaken(port))
     }
 
-    // Cases 5–6: ps -o pid=,ppid=,rss=,lstart=,comm=
+    // Cases 5–6: ps -o pid=,ppid=,rss=,stat=,lstart=,comm=
 
     func testParsesPSRow() throws {
         let utc = try XCTUnwrap(TimeZone(identifier: "UTC"))
-        let line = "  596 94922 812345 Mon Sep 21 12:27:45 2026 /opt/homebrew/Cellar/openjdk@17/bin/java\n"
+        let line = "  596 94922 812345 Ss Mon Sep 21 12:27:45 2026 /opt/homebrew/Cellar/openjdk@17/bin/java\n"
         let row = try XCTUnwrap(ProcessScanner.parsePS(line, timeZone: utc).first)
 
         var calendar = Calendar(identifier: .gregorian)
@@ -73,9 +73,19 @@ final class ProcessScannerTests: XCTestCase {
 
     func testExecutableKeepsSpacesFromComm() {
         let line =
-            "91879 91440 20480 Tue Sep  1 10:00:00 2026 /Applications/Visual Studio Code.app/Contents/"
+            "91879 91440 20480 S+ Tue Sep  1 10:00:00 2026 /Applications/Visual Studio Code.app/Contents/"
             + "Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin)\n"
         XCTAssertEqual(ProcessScanner.parsePS(line).first?.executable, "Code Helper (Plugin)")
+    }
+
+    func testStateColumnTellsSuspendedFromRunning() {
+        func suspended(_ stat: String) -> Bool? {
+            ProcessScanner.parsePS("10 1 100 \(stat) Mon Sep 21 12:27:45 2026 /usr/bin/node\n").first?.isSuspended
+        }
+        XCTAssertEqual(suspended("T"), true)
+        XCTAssertEqual(suspended("TN"), true)
+        XCTAssertEqual(suspended("Ss"), false)
+        XCTAssertEqual(suspended("R+"), false)
     }
 
     // Case 7: sysctl(KERN_PROCARGS2)

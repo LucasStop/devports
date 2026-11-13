@@ -22,6 +22,7 @@ O encerramento é seguro, e um terminal integrado permite reiniciar servidores c
 4. Como dev, quero ver os processos dev sem porta agrupados por projeto (MCPs, daemons Gradle, workers), para achar o que está consumindo recursos.
 5. Como dev, quero buscar por porta, processo ou projeto, e saber quando uma porta está livre.
 6. Como dev, quero encerrar um processo com um clique, e forçar se ele não responder.
+   Também quero suspender e retomar um processo dev (SIGSTOP/SIGCONT) para liberar CPU sem perder o estado; a porta continua ocupada enquanto ele está suspenso.
 7. Como dev, quero encerrar todos os processos de um grupo, com confirmação.
 8. Como dev, quero nunca matar o processo errado quando um PID for reciclado.
 9. Como dev, quero ver os processos de sistema quando precisar (por exemplo, o AirPlay na 5000), escondidos por padrão.
@@ -60,7 +61,8 @@ O encerramento é seguro, e um terminal integrado permite reiniciar servidores c
 - XCTest no limite das funções puras:
   - parsing de `lsof`, `ps` e `KERN_PROCARGS2`;
   - rótulo, projeto, grupo, uptime e classificação;
-  - guarda de PID reciclado;
+  - guarda de PID reciclado, também em suspender e retomar;
+  - coluna de estado do `ps` (`T` = suspenso) e SIGCONT antes do TERM em processo suspenso;
   - gerenciador de pacotes e ordem dos scripts;
   - comando raiz, descendentes e aspas.
 - Os casos são definidos antes da implementação (25 casos no plano). UI e layout não levam teste.
