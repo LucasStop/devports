@@ -26,6 +26,11 @@ struct PopoverSizes: Codable, Equatable, RawRepresentable {
 
     init() {}
 
+    // Field-wise: RawRepresentable's default == would compare the JSON strings.
+    static func == (a: Self, b: Self) -> Bool {
+        a.same == b.same && a.all == b.all && a.ports == b.ports && a.apps == b.apps && a.terminal == b.terminal
+    }
+
     // Explicit: RawRepresentable's default Codable would encode a bare string and recurse through `rawValue`.
     private enum CodingKeys: String, CodingKey { case same, all, ports, apps, terminal }
 
@@ -54,7 +59,10 @@ struct PopoverSizes: Codable, Equatable, RawRepresentable {
     }
 
     var rawValue: String {
-        guard let data = try? JSONEncoder().encode(self) else { return "{}" }
+        // Sorted keys keep the string stable, so equal values give equal raw values.
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        guard let data = try? encoder.encode(self) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }
 
