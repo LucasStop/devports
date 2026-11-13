@@ -38,7 +38,15 @@ final class Store {
         didSet { restartPolling() }
     }
 
-    init() { restartPolling() }
+    @ObservationIgnored private let scanner: any ProcessScanning
+    /// Off in previews, which seed their own rows.
+    @ObservationIgnored private let autoRefresh: Bool
+
+    init(scanner: any ProcessScanning = SystemScanner(), autoRefresh: Bool = true) {
+        self.scanner = scanner
+        self.autoRefresh = autoRefresh
+        restartPolling()
+    }
 
     var devPortCount: Int { Overview(processes: processes).ports.count }
 
@@ -49,6 +57,7 @@ final class Store {
     }
 
     private func restartPolling() {
+        guard autoRefresh else { return }
         let interval = isPopoverOpen || isTerminalOpen ? 5 : 30
         polling?.cancel()
         polling = Task { [weak self] in
@@ -60,7 +69,8 @@ final class Store {
     }
 
     func refresh() async {
-        processes = await Task.detached(priority: .userInitiated) { ProcessScanner.scan() }.value
+        let scanner = scanner
+        processes = await Task.detached(priority: .userInitiated) { scanner.scan() }.value
         let alive = Set(processes.map(\.pid))
         stopping = stopping.filter { alive.contains($0.key) }
     }
@@ -191,3 +201,15 @@ final class Store {
         }
     }
 }
+
+#if DEBUG
+    extension Store {
+        /// A store frozen on `processes`, with rows already mid-termination; same file so it can reach the private setters.
+        static func preview(_ processes: [DevProcess], stopping: [Int32: Stopping] = [:]) -> Store {
+            let store = Store(scanner: PreviewScanner(processes: processes), autoRefresh: false)
+            store.processes = processes
+            store.stopping = stopping
+            return store
+        }
+    }
+#endif
