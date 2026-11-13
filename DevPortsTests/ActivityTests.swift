@@ -116,4 +116,25 @@ final class ActivityTests: XCTestCase {
         let result = apps([node(950, 1, chrome, stopped: true), node(951, 950, helper)])
         XCTAssertTrue(result[0].isSuspended)
     }
+
+    /// B6: the badge follows the root, as the filter does, even when an older member is the user's own.
+    func testSystemBadgeFollowsTheRoot() {
+        let result = apps([node(900, 1, "/usr/sbin/sshd", uid: 0), node(800, 900, "/bin/zsh")], showSystem: true)
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(result[0].members.first?.pid, 800)
+        XCTAssertTrue(result[0].isSystem)
+        XCTAssertFalse(apps([node(950, 1, chrome)])[0].isSystem)
+    }
+
+    func testParentCycleStillGroups() {
+        XCTAssertFalse(apps([node(10, 11, "/bin/a"), node(11, 10, "/bin/b")]).isEmpty)
+    }
+
+    /// Known limit: XPC services are launchd's children, so Safari's web content is its own row, not paused with it.
+    func testXPCServiceUnderLaunchdIsItsOwnApp() {
+        let webContent =
+            "/System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent"
+        let result = apps([node(600, 1, "/Applications/Safari.app/Contents/MacOS/Safari"), node(700, 1, webContent)])
+        XCTAssertEqual(Set(result.map(\.name)), ["Safari", "com.apple.WebKit.WebContent"])
+    }
 }
