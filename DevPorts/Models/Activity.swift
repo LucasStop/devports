@@ -22,6 +22,8 @@ enum Activity {
         /// nil on the first scan, when there is no earlier reading to compare with.
         let cpu: Double?
         let kind: Kind
+        /// Its root belongs to another user: the same test as the "Mostrar sistema" filter, for the SISTEMA badge.
+        let isSystem: Bool
 
         var memoryBytes: Int64 { members.reduce(0) { $0 + $1.memoryBytes } }
         var isSuspended: Bool { members.contains { $0.isSuspended } }
@@ -96,7 +98,7 @@ enum Activity {
             return App(
                 id: key, name: name, members: members,
                 cpu: cpu.map { map in members.reduce(0) { $0 + (map[$1.key] ?? 0) } },
-                kind: kind)
+                kind: kind, isSystem: top.uid != me)
         }
         switch sort {
         case .cpu:

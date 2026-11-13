@@ -73,7 +73,6 @@ struct AppsView: View {
     private func row(_ app: Activity.App) -> some View {
         let isOpen = expanded.contains(app.id)
         let locked = app.kind != .normal
-        let isSystem = app.members.first.map { $0.uid != getuid() } ?? false
         return VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Button {
@@ -97,7 +96,7 @@ struct AppsView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 6) {
                         Text(app.name).font(.system(size: 13)).lineLimit(1)
-                        if isSystem { Badge(text: "SISTEMA", color: .idle) }
+                        if app.isSystem { Badge(text: "SISTEMA", color: .idle) }
                         if app.isSuspended { Badge(text: "SUSPENSO", color: .idle) }
                     }
                     Text(app.members.count == 1 ? "1 processo" : "\(app.members.count) processos")

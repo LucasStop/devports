@@ -20,9 +20,11 @@ struct PopoverView: View {
         nonmutating set { store.tab = newValue }
     }
 
-    init(store: Store, startOn tab: PopoverTab = .ports) {
+    /// The MenuBarExtra rebuilds this view on every scan (the label counts ports), so only previews pass `startOn`;
+    /// writing a default here sent the popover back to Portas every 5 s.
+    init(store: Store, startOn tab: PopoverTab? = nil) {
         self.store = store
-        store.tab = tab
+        if let tab { store.tab = tab }
     }
 
     /// The Terminal tab has no search, no system toggle and no height cap of its own.
@@ -59,7 +61,11 @@ struct PopoverView: View {
             store.setPopoverOpen(false)
             store.isAppsTabOpen = false
         }
-        .onChange(of: tab) { store.isAppsTabOpen = tab == .apps }
+        .onChange(of: tab) {
+            store.isAppsTabOpen = tab == .apps
+            // A port query means nothing to the Apps list, and the other way round.
+            query = ""
+        }
     }
 
     @ViewBuilder
@@ -117,7 +123,13 @@ struct PopoverView: View {
         HStack(spacing: 2) {
             ForEach(PopoverTab.allCases, id: \.self) { item in
                 Button {
-                    tab = item
+                    // Set to Janela, the tab opens the window and shows its notice; otherwise the sessions stay
+                    // where they are, the window included.
+                    if item == .terminal && placement == .window {
+                        store.showTerminal(placement: .window) { openWindow(id: "terminal") }
+                    } else {
+                        tab = item
+                    }
                 } label: {
                     Text(item.rawValue)
                         .font(.system(size: 12, weight: tab == item ? .semibold : .regular))
@@ -248,7 +260,7 @@ struct PopoverView: View {
         if let folder = group.processes.lazy.compactMap({ $0.projectPath ?? $0.cwd }).first {
             Button("Terminal na pasta") {
                 store.openTerminal(title: group.name, folder: folder)
-                store.showTerminal(open: openWindow)
+                store.showTerminal { openWindow(id: "terminal") }
             }
             if let scripts = ProjectScripts.read(root: folder) {
                 Menu("Scripts") {
@@ -257,7 +269,7 @@ struct PopoverView: View {
                             store.openTerminal(
                                 title: "\(group.name) · \(name)", folder: folder,
                                 command: "\(scripts.manager) run \(name)")
-                            store.showTerminal(open: openWindow)
+                            store.showTerminal { openWindow(id: "terminal") }
                         }
                     }
                 }
@@ -321,7 +333,7 @@ struct PopoverView: View {
             .font(.system(size: 12))
             .frame(maxWidth: .infinity, alignment: .leading)
             Button("Reiniciar") {
-                Task { if await store.confirmRestart() { store.showTerminal(open: openWindow) } }
+                Task { if await store.confirmRestart() { store.showTerminal { openWindow(id: "terminal") } } }
             }
             .buttonStyle(SmallButtonStyle(color: .ok, filled: true))
             Button("Cancelar") { store.cancelRestart() }.buttonStyle(SmallButtonStyle())
@@ -547,7 +559,7 @@ private struct RowMenu: View {
         if let folder = process.projectPath ?? process.cwd {
             Button("Terminal na pasta") {
                 store.openTerminal(title: process.project ?? process.group, folder: folder)
-                store.showTerminal(open: openWindow)
+                store.showTerminal { openWindow(id: "terminal") }
             }
         }
         if process.cwd != nil {
@@ -651,15 +663,12 @@ extension DevProcess {
 }
 
 extension Store {
-    /// Brings up the Terminal where the setting says: its tab in the popover, or the window.
-    func showTerminal(open: OpenWindowAction) {
-        if TerminalSessions.Host.preferred == .window {
-            terminal.host = .window
-            open(id: "terminal")
-        } else {
-            terminal.host = .popover
-            tab = .terminal
-        }
+    /// Brings up the Terminal tab, with the sessions where the setting says: in the tab, or in the window, which
+    /// `open` brings up while the tab shows the notice.
+    func showTerminal(placement: TerminalSessions.Host = .preferred, open: () -> Void) {
+        terminal.host = placement
+        tab = .terminal
+        if placement == .window { open() }
     }
 }
 
