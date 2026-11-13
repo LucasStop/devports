@@ -10,6 +10,11 @@ struct PopoverView: View {
     /// The row or group waiting on its inline "Encerrar" confirmation.
     @State private var confirming: String?
     @State private var confirmingQuit = false
+    private enum Tab: String, CaseIterable {
+        case ports = "Portas"
+        case apps = "Apps"
+    }
+    @State private var tab = Tab.ports
     @Environment(\.openWindow) private var openWindow
 
     /// DESIGN.md caps the popover at 660 pt; header, search field and footer take 127 of them.
@@ -21,8 +26,11 @@ struct PopoverView: View {
             isPortTaken: ProcessScanner.isPortTaken)
         VStack(spacing: 0) {
             header
+            tabPicker
             searchField
-            if overview.ports.isEmpty && overview.groups.isEmpty {
+            if tab == .apps {
+                AppsView(store: store, query: query, showSystem: showSystem)
+            } else if overview.ports.isEmpty && overview.groups.isEmpty {
                 emptyState(overview.searchedPort)
             } else {
                 ScrollView {
@@ -40,11 +48,18 @@ struct PopoverView: View {
             if confirmingQuit { quitBand }
             if let pending = store.pendingRestart { restartBand(pending.process, command: pending.plan.command) }
             Divider()
-            footer(hiddenCount: overview.hiddenCount)
+            footer(hiddenCount: tab == .apps ? nil : overview.hiddenCount)
         }
         .frame(width: 440)
-        .onAppear { store.setPopoverOpen(true) }
-        .onDisappear { store.setPopoverOpen(false) }
+        .onAppear {
+            store.setPopoverOpen(true)
+            store.isAppsTabOpen = tab == .apps
+        }
+        .onDisappear {
+            store.setPopoverOpen(false)
+            store.isAppsTabOpen = false
+        }
+        .onChange(of: tab) { store.isAppsTabOpen = tab == .apps }
     }
 
     private var header: some View {
@@ -73,10 +88,36 @@ struct PopoverView: View {
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 8, trailing: 10))
     }
 
+    private var tabPicker: some View {
+        HStack(spacing: 2) {
+            ForEach(Tab.allCases, id: \.self) { item in
+                Button {
+                    tab = item
+                } label: {
+                    Text(item.rawValue)
+                        .font(.system(size: 12, weight: tab == item ? .semibold : .regular))
+                        .foregroundStyle(tab == item ? Color.primary : .secondary)
+                        .frame(maxWidth: .infinity, minHeight: 24)
+                        .background(
+                            tab == item ? Color(nsColor: .windowBackgroundColor) : .clear, in: .rect(cornerRadius: 6)
+                        )
+                        .shadow(color: .black.opacity(tab == item ? 0.12 : 0), radius: 1, y: 1)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(tab == item ? .isSelected : [])
+            }
+        }
+        .padding(2)
+        .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 8))
+        .padding(EdgeInsets(top: 0, leading: 12, bottom: 8, trailing: 12))
+    }
+
     private var searchField: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Buscar porta, processo ou projeto", text: $query).textFieldStyle(.plain)
+            TextField(tab == .apps ? "Buscar app ou processo" : "Buscar porta, processo ou projeto", text: $query)
+                .textFieldStyle(.plain)
         }
         .font(.system(size: 12))
         .padding(.horizontal, 8)
@@ -290,12 +331,12 @@ struct PopoverView: View {
         .padding(12)
     }
 
-    private func footer(hiddenCount: Int) -> some View {
+    private func footer(hiddenCount: Int?) -> some View {
         HStack(spacing: 8) {
             Toggle(isOn: $showSystem) {
                 HStack(spacing: 8) {
                     Text("Mostrar sistema")
-                    Text(String(hiddenCount)).foregroundStyle(.secondary)
+                    if let hiddenCount { Text(String(hiddenCount)).foregroundStyle(.secondary) }
                 }
             }
             .toggleStyle(.checkbox)
@@ -510,7 +551,7 @@ private struct ConfirmBand: View {
     }
 }
 
-private struct IconButton: View {
+struct IconButton: View {
     let systemName: String
     let label: String
     let action: () -> Void
@@ -530,7 +571,7 @@ private struct IconButton: View {
 }
 
 /// DESIGN.md's small button: 24 pt, subtle border, or filled for the confirming action.
-private struct SmallButtonStyle: ButtonStyle {
+struct SmallButtonStyle: ButtonStyle {
     var color: Color = .primary
     var filled = false
     var strong = false
@@ -553,7 +594,7 @@ private struct SmallButtonStyle: ButtonStyle {
     }
 }
 
-private struct Led: View {
+struct Led: View {
     let color: Color
 
     var body: some View {

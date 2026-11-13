@@ -237,7 +237,7 @@ enum ProcessScanner {
 
     /// `Sep 21 12:27:45 2026` (lstart minus the weekday). Parsed by hand because DateFormatter cost ~40 µs a line
     /// and ps lists every process on the machine.
-    private static func startDate(_ words: ArraySlice<Substring>, calendar: Calendar) -> Date? {
+    static func startDate(_ words: ArraySlice<Substring>, calendar: Calendar) -> Date? {
         let words = Array(words)
         let time = words[2].split(separator: ":").compactMap { Int($0) }
         guard let month = months.firstIndex(of: String(words[0])), let day = Int(words[1]), time.count == 3,
@@ -337,7 +337,7 @@ enum ProcessScanner {
         return result != 0 && errno == EADDRINUSE
     }
 
-    private static func run(_ executable: String, _ arguments: [String]) -> String {
+    static func run(_ executable: String, _ arguments: [String]) -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments

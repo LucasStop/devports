@@ -23,6 +23,7 @@ O encerramento é seguro, e um terminal integrado permite reiniciar servidores c
 5. Como dev, quero buscar por porta, processo ou projeto, e saber quando uma porta está livre.
 6. Como dev, quero encerrar um processo com um clique, e forçar se ele não responder.
    Também quero suspender e retomar um processo dev (SIGSTOP/SIGCONT) para liberar CPU sem perder o estado; a porta continua ocupada enquanto ele está suspenso.
+   Também quero uma aba Apps, como o Monitor de Atividade, com todos os processos agrupados por aplicativo (CPU e memória), para pausar e retomar um app inteiro, com os helpers. O que o DevPorts pausou é retomado ao sair; Finder, Dock, WindowServer e o próprio DevPorts não podem ser pausados.
 7. Como dev, quero encerrar todos os processos de um grupo, com confirmação.
 8. Como dev, quero nunca matar o processo errado quando um PID for reciclado.
 9. Como dev, quero ver os processos de sistema quando precisar (por exemplo, o AirPlay na 5000), escondidos por padrão.
@@ -62,6 +63,7 @@ O encerramento é seguro, e um terminal integrado permite reiniciar servidores c
   - parsing de `lsof`, `ps` e `KERN_PROCARGS2`;
   - rótulo, projeto, grupo, uptime e classificação;
   - guarda de PID reciclado, também em suspender e retomar;
+  - agrupamento por app, CPU entre duas leituras, protegidos e outros usuários, retomada ao sair;
   - coluna de estado do `ps` (`T` = suspenso) e SIGCONT antes do TERM em processo suspenso;
   - gerenciador de pacotes e ordem dos scripts;
   - comando raiz, descendentes e aspas.
