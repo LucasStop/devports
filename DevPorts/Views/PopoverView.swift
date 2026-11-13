@@ -323,7 +323,9 @@ private struct PortRowView: View {
         let process = row.process
         let isStopping = store.stopping[process.pid] != nil
         HStack(spacing: 10) {
-            Led(color: isStopping || !process.isDev ? .idle : row.port.isExposed ? .warning : .ok)
+            Led(
+                color: isStopping || !process.isDev || process.isSuspended ? .idle : row.port.isExposed ? .warning : .ok
+            )
             HStack(spacing: 10) {
                 Text(":" + String(row.port.number))
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
@@ -333,6 +335,7 @@ private struct PortRowView: View {
                         Text(process.label).font(.system(size: 13)).lineLimit(1)
                         if row.port.isExposed { Badge(text: "REDE", color: .warning, textColor: .warningText) }
                         if !process.isDev { Badge(text: "SISTEMA", color: .idle) }
+                        if process.isSuspended { Badge(text: "SUSPENSO", color: .idle) }
                     }
                     StatusLine(
                         process: process, store: store,
@@ -340,7 +343,7 @@ private struct PortRowView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(process.isDev && !isStopping ? .primary : .secondary)
+            .foregroundStyle(process.isDev && !isStopping && !process.isSuspended ? .primary : .secondary)
             .accessibilityElement(children: .combine)
             if !isStopping && confirming != "pid:\(process.pid)" {
                 IconButton(systemName: "arrow.up.right", label: "Abrir localhost:\(row.port.number) no navegador") {
@@ -370,12 +373,16 @@ private struct ProcessRowView: View {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text(process.label).font(.system(size: 12)).lineLimit(1).layoutPriority(1)
                 Text(" · ").font(.system(size: 11)).foregroundStyle(.secondary)
+                if process.isSuspended {
+                    Badge(text: "SUSPENSO", color: .idle)
+                    Text(" · ").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
                 StatusLine(
                     process: process, store: store,
                     details: ["pid \(process.pid)", process.uptime, process.memory])
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(store.stopping[process.pid] == nil ? .primary : .secondary)
+            .foregroundStyle(store.stopping[process.pid] == nil && !process.isSuspended ? .primary : .secondary)
             .accessibilityElement(children: .combine)
             KillControl(process: process, store: store, confirming: $confirming)
         }
@@ -434,9 +441,32 @@ private struct KillControl: View {
                 Button("Cancelar") { confirming = nil }.buttonStyle(SmallButtonStyle())
             }
         } else {
-            IconButton(systemName: "xmark", label: "Encerrar \(process.label), pid \(process.pid)") {
-                if process.isDev { store.terminate([process]) } else { confirming = key }
+            HStack(spacing: 0) {
+                if process.isDev { SuspendControl(process: process, store: store) }
+                IconButton(systemName: "xmark", label: "Encerrar \(process.label), pid \(process.pid)") {
+                    if process.isDev { store.terminate([process]) } else { confirming = key }
+                }
             }
+        }
+    }
+}
+
+/// ⏸ sends SIGSTOP, ▶ sends SIGCONT. The port stays taken while suspended, so new connections wait.
+private struct SuspendControl: View {
+    let process: DevProcess
+    let store: Store
+
+    var body: some View {
+        if process.isSuspended {
+            IconButton(systemName: "play.fill", label: "Retomar \(process.label), pid \(process.pid)") {
+                store.resume(process)
+            }
+        } else {
+            IconButton(
+                systemName: "pause.fill",
+                label:
+                    "Suspender \(process.label), pid \(process.pid). A porta continua ocupada e novas conexões ficam esperando."
+            ) { store.suspend(process) }
         }
     }
 }
@@ -565,6 +595,10 @@ private func counted(_ count: Int, _ singular: String, _ plural: String) -> Stri
 
     #Preview("Vazio") {
         PopoverView(store: .preview([]))
+    }
+
+    #Preview("Suspenso") {
+        PopoverView(store: .preview([Sample.panel, Sample.suspended, Sample.exposed, Sample.worker]))
     }
 
     #Preview("Encerrando") {

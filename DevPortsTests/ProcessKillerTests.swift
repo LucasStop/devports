@@ -26,6 +26,33 @@ final class ProcessKillerTests: XCTestCase {
         XCTAssertEqual(killer.terminate(process()), .gone)
     }
 
+    func testSuspendAndResumeSendStopAndCont() {
+        let killer = killer(startTime: started)
+        XCTAssertEqual(killer.suspend(process()), .sent(SIGSTOP))
+        XCTAssertEqual(killer.resume(process()), .sent(SIGCONT))
+        XCTAssertEqual(sent, [SIGSTOP, SIGCONT])
+    }
+
+    func testSuspendSkipsRecycledPid() {
+        let killer = killer(startTime: started.addingTimeInterval(60))
+        XCTAssertEqual(killer.suspend(process()), .pidReused)
+        XCTAssertEqual(sent, [])
+    }
+
+    func testSuspendOfOtherUsersProcessIsNotPermitted() {
+        let killer = ProcessKiller(send: { _, _ in EPERM }, startTime: { _ in self.started })
+        XCTAssertEqual(killer.suspend(process()), .notPermitted)
+    }
+
+    // A stopped process keeps TERM pending, so terminate continues it first.
+    func testTerminateOfSuspendedProcessContinuesFirst() {
+        var stopped = process()
+        stopped.isSuspended = true
+        let killer = killer(startTime: started)
+        XCTAssertEqual(killer.terminate(stopped), .sent(SIGTERM))
+        XCTAssertEqual(sent, [SIGCONT, SIGTERM])
+    }
+
     /// `startTime` has microseconds; ps's lstart, which the scan keeps, only seconds.
     private func killer(startTime: Date) -> ProcessKiller {
         ProcessKiller(

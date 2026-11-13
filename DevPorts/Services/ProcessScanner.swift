@@ -19,6 +19,8 @@ enum ProcessScanner {
         let memoryBytes: Int64
         let startedAt: Date
         let executable: String
+        /// `T` in the ps state column: stopped by SIGSTOP (or a job-control stop).
+        let isSuspended: Bool
     }
 
     // ponytail: this pattern is the knob for what counts as dev; widen it when a runtime is missing.
@@ -32,7 +34,7 @@ enum ProcessScanner {
 
     static func scan(home: String = NSHomeDirectory()) -> [DevProcess] {
         let listening = parseListening(run("/usr/sbin/lsof", ["-nP", "-b", "-w", "-iTCP", "-sTCP:LISTEN", "-Fpn"]))
-        let rows = parsePS(run("/bin/ps", ["-axww", "-o", "pid=,ppid=,rss=,lstart=,comm="]))
+        let rows = parsePS(run("/bin/ps", ["-axww", "-o", "pid=,ppid=,rss=,stat=,lstart=,comm="]))
         let candidates = rows.filter { listening[$0.pid] != nil || isDevExecutable($0.executable) }
         guard !candidates.isEmpty else { return [] }
 
@@ -59,14 +61,15 @@ enum ProcessScanner {
                 memoryBytes: row.memoryBytes,
                 startedAt: row.startedAt,
                 isDev: isDevExecutable(row.executable) || project != nil,
-                projectPath: projectPath
+                projectPath: projectPath,
+                isSuspended: row.isSuspended
             )
         }
     }
 
     /// Reads the ancestors of `pid` to find the command that started it, then its folder and every process under it.
     static func restartPlan(for pid: Int32) -> Restart.Plan? {
-        let rows = parsePS(run("/bin/ps", ["-axww", "-o", "pid=,ppid=,rss=,lstart=,comm="]))
+        let rows = parsePS(run("/bin/ps", ["-axww", "-o", "pid=,ppid=,rss=,stat=,lstart=,comm="]))
         let byPid = Dictionary(rows.map { ($0.pid, $0) }, uniquingKeysWith: { first, _ in first })
         var lineage: [Int32] = []
         var next = pid
@@ -127,27 +130,28 @@ enum ProcessScanner {
         Dictionary(records(output).map { ($0.pid, $0.name) }, uniquingKeysWith: { first, _ in first })
     }
 
-    /// `ps -o pid=,ppid=,rss=,lstart=,comm=` under `LC_ALL=C`. `lstart` spans five words and `comm` may contain
-    /// spaces, so the line is cut after the eighth word instead of being split on every space.
+    /// `ps -o pid=,ppid=,rss=,stat=,lstart=,comm=` under `LC_ALL=C`. `lstart` spans five words and `comm` may contain
+    /// spaces, so the line is cut after the ninth word instead of being split on every space.
     static func parsePS(_ output: String, timeZone: TimeZone = .current) -> [PSRow] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
 
         return output.split(separator: "\n").compactMap { line in
-            let words = line.split(separator: " ", maxSplits: 8)
-            guard words.count == 9,
+            let words = line.split(separator: " ", maxSplits: 9)
+            guard words.count == 10,
                 let pid = Int32(words[0]),
                 let ppid = Int32(words[1]),
                 let rss = Int64(words[2]),
-                let startedAt = startDate(words[4...7], calendar: calendar)
+                let startedAt = startDate(words[5...8], calendar: calendar)
             else { return nil }
-            let path = words[8].trimmingCharacters(in: .whitespaces)
+            let path = words[9].trimmingCharacters(in: .whitespaces)
             return PSRow(
                 pid: pid,
                 ppid: ppid,
                 memoryBytes: rss * 1024,
                 startedAt: startedAt,
-                executable: (path as NSString).lastPathComponent
+                executable: (path as NSString).lastPathComponent,
+                isSuspended: words[3].contains("T")
             )
         }
     }

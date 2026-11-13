@@ -23,6 +23,8 @@ struct DevProcess: Identifiable, Hashable, Sendable {
     let isDev: Bool
     /// Folder of `project`, where the terminal opens and package.json lives.
     var projectPath: String? = nil
+    /// Stopped with SIGSTOP: holds its ports and state but uses no CPU.
+    var isSuspended = false
 
     var id: Int32 { pid }
 }

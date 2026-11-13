@@ -36,6 +36,13 @@
             cwd: nil, project: nil, group: "Sistema", ports: [ListeningPort(number: 5000, isExposed: true)],
             memoryBytes: 64 * 1_048_576, startedAt: ago(40), isDev: false)
 
+        /// `site` after SIGSTOP: gray LED, SUSPENSO badge, ▶ instead of ⏸.
+        static var suspended: DevProcess {
+            var process = site
+            process.isSuspended = true
+            return process
+        }
+
         static let all = [site, panel, exposed, worker, system]
     }
 

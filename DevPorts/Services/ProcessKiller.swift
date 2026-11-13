@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-/// Sends TERM, then KILL on a second request. Both calls are parameters so tests never signal a real process.
+/// Sends TERM, then KILL on a second request; also STOP and CONT. Both calls are parameters so tests never signal a real process.
 final class ProcessKiller {
     enum Outcome: Equatable {
         case sent(Int32)
@@ -25,18 +25,37 @@ final class ProcessKiller {
 
     /// Re-reads the start time first: a pid freed after the scan may already belong to another process.
     func terminate(_ process: DevProcess) -> Outcome {
-        terminate(pid: process.pid, startedAt: process.startedAt)
+        terminate(pid: process.pid, startedAt: process.startedAt, suspended: process.isSuspended)
     }
 
-    func terminate(pid: pid_t, startedAt: Date) -> Outcome {
+    /// A stopped process keeps TERM pending, so a suspended one is continued first.
+    func terminate(pid: pid_t, startedAt: Date, suspended: Bool = false) -> Outcome {
         guard let current = startTime(pid) else { return .gone }
         let key = "\(pid)@\(Int(startedAt.timeIntervalSince1970))"
         guard Int(current.timeIntervalSince1970) == Int(startedAt.timeIntervalSince1970) else { return .pidReused }
         let signal = terminated.contains(key) ? SIGKILL : SIGTERM
+        if suspended && signal == SIGTERM { _ = send(pid, SIGCONT) }
         switch send(pid, signal) {
         case 0:
             terminated.insert(key)
             return .sent(signal)
+        case ESRCH: return .gone
+        default: return .notPermitted
+        }
+    }
+
+    /// SIGSTOP the process itself (not its group), after the same start-time check as `terminate`.
+    func suspend(_ process: DevProcess) -> Outcome { signal(process, SIGSTOP) }
+
+    func resume(_ process: DevProcess) -> Outcome { signal(process, SIGCONT) }
+
+    private func signal(_ process: DevProcess, _ signal: Int32) -> Outcome {
+        guard let current = startTime(process.pid) else { return .gone }
+        guard Int(current.timeIntervalSince1970) == Int(process.startedAt.timeIntervalSince1970) else {
+            return .pidReused
+        }
+        switch send(process.pid, signal) {
+        case 0: return .sent(signal)
         case ESRCH: return .gone
         default: return .notPermitted
         }
