@@ -41,7 +41,7 @@ final class Store {
     @ObservationIgnored private var pausedByUs: [Int32: Date] = [:]
     var isAppsTabOpen = false {
         didSet {
-            guard isAppsTabOpen != oldValue else { return }
+            guard isAppsTabOpen != oldValue, autoRefresh else { return }
             if !isAppsTabOpen {
                 cpu = nil
                 previousCPU = nil

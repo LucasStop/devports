@@ -14,11 +14,16 @@ struct PopoverView: View {
         case ports = "Portas"
         case apps = "Apps"
     }
-    @State private var tab = Tab.ports
+    @State private var tab: Tab
+
+    init(store: Store, startOnApps: Bool = false) {
+        self.store = store
+        _tab = State(initialValue: startOnApps ? .apps : .ports)
+    }
     @Environment(\.openWindow) private var openWindow
 
-    /// DESIGN.md caps the popover at 660 pt; header, search field and footer take 127 of them.
-    private static let maxListHeight: CGFloat = 533
+    /// DESIGN.md caps the popover at 660 pt; header, tab picker, search field and footer take 163 of them.
+    private static let maxListHeight: CGFloat = 497
 
     var body: some View {
         let overview = Overview(
@@ -636,6 +641,21 @@ private func counted(_ count: Int, _ singular: String, _ plural: String) -> Stri
 
     #Preview("Vazio") {
         PopoverView(store: .preview([]))
+    }
+
+    #Preview("Apps: lista longa") {
+        let many = (0..<40).map { i in
+            ProcessNode(
+                pid: Int32(1000 + i), ppid: 1, uid: getuid(),
+                path: "/Applications/App \(i).app/Contents/MacOS/App \(i)",
+                memoryBytes: Int64(i + 1) * 20_000_000, cpuSeconds: 0,
+                startedAt: Date(timeIntervalSince1970: 1_790_000_000 + Double(i)), isSuspended: false)
+        }
+        PopoverView(
+            store: .preview(
+                [], nodes: many,
+                cpu: Dictionary(uniqueKeysWithValues: many.map { ($0.key, Double(40) - Double($0.pid - 1000)) })),
+            startOnApps: true)
     }
 
     #Preview("Suspenso") {
