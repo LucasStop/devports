@@ -4,6 +4,8 @@ import SwiftUI
 struct PopoverView: View {
     let store: Store
     @State private var query = ""
+    @State private var angle = 0.0
+    @State private var isRefreshing = false
     @State private var expanded: Set<String> = []
     @AppStorage("showSystem") private var showSystem = false
     @State private var listHeight: CGFloat = 0
@@ -100,14 +102,27 @@ struct PopoverView: View {
 
     private var refreshButton: some View {
         Button {
-            Task { await store.refresh() }
+            Task {
+                isRefreshing = true
+                defer { isRefreshing = false }
+                await store.refresh()
+            }
         } label: {
-            Image(systemName: "arrow.clockwise").frame(width: 26, height: 26)
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .rotationEffect(.degrees(angle))
+                .frame(width: 26, height: 26)
         }
         .buttonStyle(.borderless)
+        .disabled(isRefreshing)
         .keyboardShortcut("r")
         .help("Atualizar agora")
-        .accessibilityLabel("Atualizar agora")
+        .accessibilityLabel(isRefreshing ? "Atualizando" : "Atualizar agora")
+        .task(id: isRefreshing) {
+            while isRefreshing {
+                withAnimation(.easeInOut(duration: 1)) { angle += 180 }
+                try? await Task.sleep(for: .milliseconds(1330))
+            }
+        }
     }
 
     /// Always the top row: tabs, then refresh on the right. The search field sits right under it.
